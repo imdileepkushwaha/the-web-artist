@@ -22,14 +22,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? 'site';
 
     if ($action === 'password') {
-        $current = trim($_POST['current_password'] ?? '');
-        $newPass = $_POST['new_password'] ?? '';
-        $confirm = $_POST['confirm_password'] ?? '';
+        $current = (string) ($_POST['current_password'] ?? '');
+        $newPass = (string) ($_POST['new_password'] ?? '');
+        $confirm = (string) ($_POST['confirm_password'] ?? '');
         $account = resolveCurrentAdminUser($conn);
+        $newPassLength = mb_strlen($newPass, 'UTF-8');
 
         if ($current === '') {
             flashMessage('error', 'Please enter your current password.');
-        } elseif ($newPass === '' || strlen($newPass) < 6) {
+        } elseif ($newPass === '') {
+            flashMessage('error', 'Please enter a new password.');
+        } elseif ($newPassLength < 6) {
             flashMessage('error', 'New password must be at least 6 characters.');
         } elseif ($newPass !== $confirm) {
             flashMessage('error', 'Passwords do not match.');
@@ -169,20 +172,13 @@ $settingsTabs = [
     </aside>
 
     <div class="settings-tab-panels">
-        <div class="settings-tab-panel <?= $activeTab === 'site' ? 'is-active' : '' ?>" data-settings-panel="site">
-            <?php require __DIR__ . '/includes/settings-tab-site.php'; ?>
-        </div>
-
-        <div class="settings-tab-panel <?= $activeTab === 'password' ? 'is-active' : '' ?>" data-settings-panel="password">
-            <?php require __DIR__ . '/includes/settings-tab-password.php'; ?>
-        </div>
-
-        <div class="settings-tab-panel <?= $activeTab === 'email' ? 'is-active' : '' ?>" data-settings-panel="email">
-            <?php require __DIR__ . '/includes/settings-tab-email.php'; ?>
-        </div>
-
-        <div class="settings-tab-panel <?= $activeTab === 'templates' ? 'is-active' : '' ?>" data-settings-panel="templates">
-            <?php require __DIR__ . '/includes/settings-tab-templates.php'; ?>
+        <?php
+        $activeTabFile = __DIR__ . '/includes/settings-tab-' . $activeTab . '.php';
+        ?>
+        <div class="settings-tab-panel is-active" data-settings-panel="<?= sanitize($activeTab) ?>">
+            <?php if (is_file($activeTabFile)): ?>
+                <?php require $activeTabFile; ?>
+            <?php endif; ?>
         </div>
     </div>
 </div>

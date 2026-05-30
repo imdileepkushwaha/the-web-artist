@@ -6,21 +6,23 @@
 /** @var bool|null $passwordRequired */
 /** @var int|null $passwordMinLength */
 
-$passwordFieldName = $passwordFieldName ?? $passwordFieldId;
-$passwordAutocomplete = $passwordAutocomplete ?? 'current-password';
-$passwordRequired = !isset($passwordRequired) || $passwordRequired;
-$passwordMinLength = $passwordMinLength ?? null;
+$fieldId = $passwordFieldId ?? 'password';
+$fieldLabel = $passwordFieldLabel ?? 'Password';
+$fieldName = $passwordFieldName ?? $fieldId;
+$fieldAutocomplete = $passwordAutocomplete ?? 'current-password';
+$fieldRequired = !isset($passwordRequired) || $passwordRequired;
+$fieldMinLength = isset($passwordMinLength) ? (int) $passwordMinLength : 0;
 ?>
 <div class="form-group">
-    <label for="<?= sanitize($passwordFieldId) ?>"><?= sanitize($passwordFieldLabel) ?></label>
+    <label for="<?= sanitize($fieldId) ?>"><?= sanitize($fieldLabel) ?></label>
     <div class="password-input-wrap">
         <input type="password"
-               id="<?= sanitize($passwordFieldId) ?>"
-               name="<?= sanitize($passwordFieldName) ?>"
+               id="<?= sanitize($fieldId) ?>"
+               name="<?= sanitize($fieldName) ?>"
                class="password-input"
-               autocomplete="<?= sanitize($passwordAutocomplete) ?>"
-               <?= $passwordRequired ? 'required' : '' ?>
-               <?= $passwordMinLength ? 'minlength="' . (int) $passwordMinLength . '"' : '' ?>>
+               autocomplete="<?= sanitize($fieldAutocomplete) ?>"
+               <?= $fieldRequired ? 'required' : '' ?>
+               <?= $fieldMinLength > 0 ? 'minlength="' . $fieldMinLength . '"' : '' ?>>
         <button type="button"
                 class="password-toggle"
                 aria-label="Show password"
@@ -30,3 +32,6 @@ $passwordMinLength = $passwordMinLength ?? null;
         </button>
     </div>
 </div>
+<?php
+unset($passwordFieldId, $passwordFieldLabel, $passwordFieldName, $passwordAutocomplete, $passwordRequired, $passwordMinLength);
+?>

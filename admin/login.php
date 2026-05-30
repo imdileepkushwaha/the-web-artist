@@ -51,10 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <button type="submit" class="btn btn-primary" style="width:100%; padding:14px;">Sign In</button>
         </form>
 
-        <div class="login-note">
-            Default login: <strong>admin</strong> / <strong>admin123</strong><br>
-            Change password in Settings after first login.
-        </div>
+       
     </div>
 </div>
 </body>
