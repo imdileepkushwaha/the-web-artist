@@ -1,0 +1,16 @@
+{
+  "name": "The Web Artist Admin",
+  "short_name": "TWA Admin",
+  "description": "Admin panel for The Web Artist enquiries and content",
+  "start_url": "./index.php",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "../images/twa-logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}
