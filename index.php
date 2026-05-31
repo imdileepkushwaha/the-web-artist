@@ -6,16 +6,19 @@ require_once __DIR__ . '/includes/site-content.php';
 $conn = getDbConnection();
 recordWebsiteVisit('home');
 $siteContent = initSiteContent();
+$homepage = twaLoadHomepageSettings();
 $siteServices = $siteContent['services'];
 $siteTestimonials = $siteContent['testimonials'];
 $siteFaq = $siteContent['faq'];
+$sitePortfolio = $siteContent['portfolio'];
+$siteTrustedClients = $siteContent['trusted_clients'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The Web Artist - IT Solutions</title>
+    <?php renderSeoMeta(); ?>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
 </head>
@@ -25,8 +28,7 @@ $siteFaq = $siteContent['faq'];
     <header class="navbar">
         <div class="nav-container">
             <div class="logo">
-                <!-- Replace src with your attached logo -->
-                <img src="images/twa-logo.png" alt="The Web Artist Logo" id="site-logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                <img src="<?= htmlspecialchars(twaPublicAssetUrl(SITE_LOGO)) ?>" alt="The Web Artist Logo" id="site-logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
             </div>
             <nav aria-label="Main navigation">
                 <ul class="nav-links">
@@ -59,19 +61,18 @@ $siteFaq = $siteContent['faq'];
             <div class="hero-content animate slide-up">
                 <span class="hero-badge">
                     <span class="hero-badge-dot"></span>
-                    Trusted IT Solutions Partner
+                    <?= htmlspecialchars($homepage['hero_badge']) ?>
                 </span>
                 <h1>
-                    Transform Your
-                    <span class="text-gradient hero-gradient-text">Business</span>
-                    <span class="hero-headline-line">With Smart Software</span>
+                    <?= htmlspecialchars($homepage['hero_title_line1']) ?>
+                    <span class="text-gradient hero-gradient-text"><?= htmlspecialchars($homepage['hero_title_accent']) ?></span>
+                    <span class="hero-headline-line"><?= htmlspecialchars($homepage['hero_title_line2']) ?></span>
                 </h1>
-                <p class="hero-subtitle">We deliver cutting-edge solutions — Ecommerce, School & Hospital Management, and AI Support Systems — built to scale with your growth.</p>
+                <p class="hero-subtitle"><?= htmlspecialchars($homepage['hero_subtitle']) ?></p>
                 <div class="hero-tags">
-                    <span class="hero-tag">Ecommerce</span>
-                    <span class="hero-tag">Healthcare</span>
-                    <span class="hero-tag">Education</span>
-                    <span class="hero-tag">AI Systems</span>
+                    <?php foreach ($homepage['hero_tags_list'] as $tag): ?>
+                        <span class="hero-tag"><?= htmlspecialchars($tag) ?></span>
+                    <?php endforeach; ?>
                 </div>
                 <div class="hero-buttons">
                     <a href="#services" class="btn-primary btn-glow">
@@ -84,18 +85,18 @@ $siteFaq = $siteContent['faq'];
                 </div>
                 <div class="hero-trust">
                     <div class="hero-trust-item">
-                        <span class="hero-trust-num text-gradient">50+</span>
-                        <span class="hero-trust-label">Projects</span>
+                        <span class="hero-trust-num text-gradient"><?= htmlspecialchars($homepage['hero_stat1_num']) ?></span>
+                        <span class="hero-trust-label"><?= htmlspecialchars($homepage['hero_stat1_label']) ?></span>
                     </div>
                     <div class="hero-trust-divider"></div>
                     <div class="hero-trust-item">
-                        <span class="hero-trust-num text-gradient">98%</span>
-                        <span class="hero-trust-label">Satisfaction</span>
+                        <span class="hero-trust-num text-gradient"><?= htmlspecialchars($homepage['hero_stat2_num']) ?></span>
+                        <span class="hero-trust-label"><?= htmlspecialchars($homepage['hero_stat2_label']) ?></span>
                     </div>
                     <div class="hero-trust-divider"></div>
                     <div class="hero-trust-item">
-                        <span class="hero-trust-num text-gradient">24/7</span>
-                        <span class="hero-trust-label">Support</span>
+                        <span class="hero-trust-num text-gradient"><?= htmlspecialchars($homepage['hero_stat3_num']) ?></span>
+                        <span class="hero-trust-label"><?= htmlspecialchars($homepage['hero_stat3_label']) ?></span>
                     </div>
                 </div>
 
@@ -110,10 +111,10 @@ $siteFaq = $siteContent['faq'];
                         <div class="hero-form-heading">
                             <span class="hero-form-badge">
                                 <span class="hero-form-badge-dot"></span>
-                                Free Consultation
+                                <?= htmlspecialchars($homepage['hero_form_badge']) ?>
                             </span>
-                            <h3>Request a Demo</h3>
-                            <p>Share your requirements — our team will reach out within 24 hours.</p>
+                            <h3><?= htmlspecialchars($homepage['hero_form_title']) ?></h3>
+                            <p><?= htmlspecialchars($homepage['hero_form_subtitle']) ?></p>
                         </div>
                     </div>
                     <form action="submit.php" method="POST" id="enquiry-form" class="hero-form-fields">
@@ -197,15 +198,15 @@ $siteFaq = $siteContent['faq'];
             <div class="about-text">
                 <span class="about-badge">
                     <span class="about-badge-dot"></span>
-                    About Us
+                    <?= htmlspecialchars($homepage['about_badge']) ?>
                 </span>
                 <h2>
                     Crafting Digital
-                    <span class="text-gradient about-title-accent">Excellence</span>
-                    <span class="about-title-sub">at The Web Artist</span>
+                    <span class="text-gradient about-title-accent"><?= htmlspecialchars($homepage['about_title_accent']) ?></span>
+                    <span class="about-title-sub"><?= htmlspecialchars($homepage['about_title_sub']) ?></span>
                 </h2>
-                <p class="about-lead">We are a premier IT company dedicated to crafting high-quality, modern, and scalable software solutions for growing businesses.</p>
-                <p class="about-desc">With years of experience, we empower organizations across healthcare, education, retail, and direct sales — turning ideas into reliable products through robust engineering and beautiful design.</p>
+                <p class="about-lead"><?= htmlspecialchars($homepage['about_lead']) ?></p>
+                <p class="about-desc"><?= htmlspecialchars($homepage['about_desc']) ?></p>
                 <ul class="about-features">
                     <li>
                         <span class="about-check" aria-hidden="true">
@@ -231,22 +232,22 @@ $siteFaq = $siteContent['faq'];
                         <div class="stat-icon-wrap">
                             <span class="stat-icon">💻</span>
                         </div>
-                        <span class="stat-num text-gradient">50+</span>
-                        <span class="stat-text">Projects Delivered</span>
+                        <span class="stat-num text-gradient"><?= htmlspecialchars($homepage['hero_stat1_num']) ?></span>
+                        <span class="stat-text"><?= htmlspecialchars($homepage['hero_stat1_label']) ?> Delivered</span>
                     </div>
                     <div class="stat-item">
                         <div class="stat-icon-wrap">
                             <span class="stat-icon">🌟</span>
                         </div>
-                        <span class="stat-num text-gradient">98%</span>
-                        <span class="stat-text">Client Satisfaction</span>
+                        <span class="stat-num text-gradient"><?= htmlspecialchars($homepage['hero_stat2_num']) ?></span>
+                        <span class="stat-text">Client <?= htmlspecialchars($homepage['hero_stat2_label']) ?></span>
                     </div>
                     <div class="stat-item">
                         <div class="stat-icon-wrap">
                             <span class="stat-icon">🎧</span>
                         </div>
-                        <span class="stat-num text-gradient">24/7</span>
-                        <span class="stat-text">Technical Support</span>
+                        <span class="stat-num text-gradient"><?= htmlspecialchars($homepage['hero_stat3_num']) ?></span>
+                        <span class="stat-text">Technical <?= htmlspecialchars($homepage['hero_stat3_label']) ?></span>
                     </div>
                 </div>
                 <div class="about-actions">
@@ -366,6 +367,58 @@ $siteFaq = $siteContent['faq'];
             </div>
         </div>
     </section>
+
+    <?php if (!empty($siteTrustedClients)): ?>
+    <section class="trusted-section">
+        <div class="container">
+            <div class="section-header text-center animate slide-up">
+                <span class="section-badge badge-light">TRUSTED BY</span>
+                <h2>Companies That <span class="text-gradient">Trust Us</span></h2>
+            </div>
+            <div class="trusted-grid animate slide-up delay-1">
+                <?php foreach ($siteTrustedClients as $client): ?>
+                    <div class="trusted-logo">
+                        <span><?= htmlspecialchars($client['logo_text'] ?: strtoupper(substr($client['name'], 0, 2))) ?></span>
+                        <small><?= htmlspecialchars($client['name']) ?></small>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </section>
+    <?php endif; ?>
+
+    <?php if (!empty($sitePortfolio)): ?>
+    <section id="portfolio" class="portfolio-section">
+        <div class="container">
+            <div class="section-header text-center animate slide-up">
+                <span class="section-badge">OUR WORK</span>
+                <h2>Featured <span class="text-gradient">Projects</span></h2>
+                <p class="subtitle">Real solutions we've built for businesses across industries.</p>
+            </div>
+            <div class="portfolio-grid">
+                <?php foreach ($sitePortfolio as $i => $project): ?>
+                    <div class="portfolio-card animate slide-up<?= $i % 3 === 1 ? ' delay-1' : ($i % 3 === 2 ? ' delay-2' : '') ?>">
+                        <div class="portfolio-card-top">
+                            <span class="portfolio-category"><?= htmlspecialchars($project['category']) ?></span>
+                            <?php if (!empty($project['image_url'])): ?>
+                                <img src="<?= htmlspecialchars($project['image_url']) ?>" alt="<?= htmlspecialchars($project['title']) ?>" class="portfolio-image">
+                            <?php else: ?>
+                                <div class="portfolio-image-placeholder">📁</div>
+                            <?php endif; ?>
+                        </div>
+                        <div class="portfolio-card-body">
+                            <h3><?= htmlspecialchars($project['title']) ?></h3>
+                            <p><?= htmlspecialchars($project['description']) ?></p>
+                            <?php if (!empty($project['project_url'])): ?>
+                                <a href="<?= htmlspecialchars($project['project_url']) ?>" class="service-link" target="_blank" rel="noopener noreferrer">View Project <span>&rarr;</span></a>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </section>
+    <?php endif; ?>
 
     <!-- Testimonials Section -->
     <section id="testimonials" class="testimonials">
@@ -545,19 +598,21 @@ $siteFaq = $siteContent['faq'];
 
                     <div class="contact-hours">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-                        Mon – Sat, 9:00 AM – 6:00 PM IST
+                        <?= htmlspecialchars($homepage['business_hours']) ?>
                     </div>
 
                     <div class="contact-info-list">
-                        <!-- <div class="contact-info-item">
+                        <?php if (($homepage['site_location_enabled'] ?? '0') === '1' && ($homepage['site_address'] !== '' || $homepage['site_address_line2'] !== '')): ?>
+                        <div class="contact-info-item">
                             <div class="contact-icon">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
                             </div>
                             <div>
                                 <h4>Our Location</h4>
-                                <p>123 Tech Park, Cyber City, Phase 2<br>New Delhi, India</p>
+                                <p><?= htmlspecialchars($homepage['site_address']) ?><?= $homepage['site_address_line2'] !== '' ? '<br>' . htmlspecialchars($homepage['site_address_line2']) : '' ?></p>
                             </div>
-                        </div> -->
+                        </div>
+                        <?php endif; ?>
 
                         <div class="contact-info-item">
                             <div class="contact-icon">

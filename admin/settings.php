@@ -5,7 +5,7 @@ requireAdminRole();
 $conn = getAdminDb();
 $settings = getAllSettings($conn);
 
-$allowedTabs = ['site', 'password', 'email', 'templates'];
+$allowedTabs = ['site', 'homepage', 'seo', 'password', 'email', 'templates'];
 $activeTab = $_GET['tab'] ?? 'site';
 if (!in_array($activeTab, $allowedTabs, true)) {
     $activeTab = 'site';
@@ -49,6 +49,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         settingsRedirect('password');
+    }
+
+    if ($action === 'homepage') {
+        $homepageKeys = [
+            'hero_badge', 'hero_title_line1', 'hero_title_accent', 'hero_title_line2', 'hero_subtitle', 'hero_tags',
+            'hero_stat1_num', 'hero_stat1_label', 'hero_stat2_num', 'hero_stat2_label', 'hero_stat3_num', 'hero_stat3_label',
+            'hero_form_badge', 'hero_form_title', 'hero_form_subtitle',
+            'business_hours', 'site_address', 'site_address_line2',
+            'about_badge', 'about_title_accent', 'about_title_sub', 'about_lead', 'about_desc',
+            'whatsapp_default_message',
+        ];
+
+        foreach ($homepageKeys as $key) {
+            setSetting($conn, $key, trim($_POST[$key] ?? ''));
+        }
+
+        setSetting($conn, 'site_location_enabled', isset($_POST['site_location_enabled']) ? '1' : '0');
+        setSetting($conn, 'follow_up_email_reminder', isset($_POST['follow_up_email_reminder']) ? '1' : '0');
+
+        logActivity($conn, 'settings_update', 'settings', null, 'Homepage content updated');
+        flashMessage('success', 'Homepage content saved successfully.');
+        settingsRedirect('homepage');
+    }
+
+    if ($action === 'seo') {
+        setSetting($conn, 'seo_title', trim($_POST['seo_title'] ?? ''));
+        setSetting($conn, 'seo_description', trim($_POST['seo_description'] ?? ''));
+        setSetting($conn, 'seo_keywords', trim($_POST['seo_keywords'] ?? ''));
+        setSetting($conn, 'google_analytics_id', trim($_POST['google_analytics_id'] ?? ''));
+        setSetting($conn, 'og_image_url', trim($_POST['og_image_url'] ?? ''));
+
+        logActivity($conn, 'settings_update', 'settings', null, 'SEO settings updated');
+        flashMessage('success', 'SEO settings saved successfully.');
+        settingsRedirect('seo');
     }
 
     if ($action === 'email') {
@@ -98,9 +132,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         settingsRedirect('templates');
     }
 
+    if ($action === 'site') {
     $notifyEmail = trim($_POST['notify_email'] ?? '');
     $siteEmail = trim($_POST['site_email'] ?? '');
     $sitePhone = trim($_POST['site_phone'] ?? '');
+    $currentLogo = getSiteLogoPath($conn);
+    $upload = handleSiteLogoUpload($currentLogo);
+
+    if ($upload['message'] !== '' && !$upload['success']) {
+        flashMessage('error', $upload['message']);
+        settingsRedirect('site');
+    }
 
     if ($siteEmail === '' && $notifyEmail !== '') {
         $siteEmail = $notifyEmail;
@@ -114,9 +156,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     setSetting($conn, 'site_phone', $sitePhone);
     setSetting($conn, 'session_timeout_minutes', (string) max(5, (int) ($_POST['session_timeout_minutes'] ?? 30)));
 
+    if (!empty($_POST['reset_site_logo'])) {
+        setSetting($conn, 'site_logo', 'images/twa-logo.png');
+    } elseif ($upload['success'] && $upload['path']) {
+        setSetting($conn, 'site_logo', $upload['path']);
+    } else {
+        $siteLogo = trim($_POST['site_logo'] ?? $currentLogo);
+        if ($siteLogo !== '') {
+            setSetting($conn, 'site_logo', $siteLogo);
+        }
+    }
+
     logActivity($conn, 'settings_update', 'settings', null, 'Site settings updated');
     flashMessage('success', 'Settings saved successfully.');
     settingsRedirect('site');
+    }
 }
 
 $settings = getAllSettings($conn);
@@ -137,6 +191,16 @@ $settingsTabs = [
         'label' => 'Site & Notifications',
         'desc' => 'Contact details & alerts',
         'icon' => panelIconSvg('site'),
+    ],
+    'homepage' => [
+        'label' => 'Homepage',
+        'desc' => 'Hero, about & contact',
+        'icon' => panelIconSvg('pages'),
+    ],
+    'seo' => [
+        'label' => 'SEO',
+        'desc' => 'Meta tags & analytics',
+        'icon' => panelIconSvg('traffic'),
     ],
     'password' => [
         'label' => 'Change Password',

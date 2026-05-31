@@ -297,6 +297,16 @@ function getEnquiries(PDO $conn, array $filters = [], int $page = 1, int $perPag
         $params[':search'] = '%' . $filters['search'] . '%';
     }
 
+    if (!empty($filters['follow_up'])) {
+        if ($filters['follow_up'] === 'due') {
+            $where[] = "follow_up_date IS NOT NULL AND follow_up_date <= CURDATE() AND status NOT IN ('closed')";
+        } elseif ($filters['follow_up'] === 'overdue') {
+            $where[] = "follow_up_date IS NOT NULL AND follow_up_date < CURDATE() AND status NOT IN ('closed')";
+        } elseif ($filters['follow_up'] === 'today') {
+            $where[] = "follow_up_date = CURDATE() AND status NOT IN ('closed')";
+        }
+    }
+
     $whereSql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
 
     $countStmt = $conn->prepare("SELECT COUNT(*) AS total FROM enquiries $whereSql");

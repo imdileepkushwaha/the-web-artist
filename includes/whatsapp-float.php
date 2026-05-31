@@ -1,10 +1,9 @@
 <?php
-
 if (!defined('SITE_PHONE_RAW')) {
     require_once __DIR__ . '/site-config.php';
 }
 
-$waMessage = urlencode('Hi, I would like to know more about your services.');
+$waMessage = urlencode(defined('SITE_WHATSAPP_MESSAGE') ? SITE_WHATSAPP_MESSAGE : 'Hi, I would like to know more about your services.');
 $waUrl = 'https://wa.me/' . SITE_PHONE_RAW . '?text=' . $waMessage;
 ?>
 <a href="<?= htmlspecialchars($waUrl) ?>"

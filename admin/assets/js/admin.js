@@ -682,4 +682,110 @@ document.addEventListener('DOMContentLoaded', () => {
 
     smtpToggle?.addEventListener('change', syncSmtpFields);
     syncSmtpFields();
+
+    const openModal = (modalId) => {
+        const modal = document.getElementById(modalId);
+
+        if (!modal) {
+            return;
+        }
+
+        modal.hidden = false;
+        modal.setAttribute('aria-hidden', 'false');
+        modal.classList.add('is-open');
+        document.body.classList.add('modal-open');
+
+        const firstField = modal.querySelector('input:not([type="hidden"]), select, textarea');
+        if (firstField) {
+            window.setTimeout(() => firstField.focus(), 50);
+        }
+    };
+
+    const closeModal = (modal) => {
+        if (!modal) {
+            return;
+        }
+
+        modal.hidden = true;
+        modal.setAttribute('aria-hidden', 'true');
+        modal.classList.remove('is-open');
+
+        if (!document.querySelector('.admin-modal.is-open')) {
+            document.body.classList.remove('modal-open');
+        }
+    };
+
+    document.querySelectorAll('[data-modal-open]').forEach((trigger) => {
+        trigger.addEventListener('click', () => {
+            openModal(trigger.getAttribute('data-modal-open'));
+        });
+    });
+
+    document.querySelectorAll('[data-modal-close]').forEach((trigger) => {
+        trigger.addEventListener('click', () => {
+            closeModal(trigger.closest('.admin-modal'));
+        });
+    });
+
+    document.querySelectorAll('.admin-modal').forEach((modal) => {
+        modal.addEventListener('click', (event) => {
+            if (event.target === modal) {
+                closeModal(modal);
+            }
+        });
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape') {
+            return;
+        }
+
+        document.querySelectorAll('.admin-modal.is-open').forEach((modal) => {
+            closeModal(modal);
+        });
+    });
+
+    const autoOpenModalId = document.body.dataset.openModal;
+    if (autoOpenModalId) {
+        openModal(autoOpenModalId);
+        delete document.body.dataset.openModal;
+    }
+
+    document.querySelectorAll('.enquiry-template-chip-btn').forEach((chip) => {
+        chip.addEventListener('click', () => {
+            const subjectField = document.getElementById('email_subject');
+            const bodyField = document.getElementById('email_body');
+            let template = {};
+
+            try {
+                template = JSON.parse(chip.dataset.template || '{}');
+            } catch (error) {
+                template = {};
+            }
+
+            if (subjectField && template.subject) {
+                subjectField.value = template.subject;
+            }
+
+            if (bodyField && template.body) {
+                bodyField.value = template.body;
+            }
+
+            openModal('sendEmailModal');
+        });
+    });
+
+    const siteLogoFile = document.getElementById('site_logo_file');
+    const siteLogoPreview = document.getElementById('siteLogoPreview');
+
+    if (siteLogoFile && siteLogoPreview) {
+        siteLogoFile.addEventListener('change', () => {
+            const file = siteLogoFile.files?.[0];
+            if (!file) {
+                return;
+            }
+
+            siteLogoPreview.src = URL.createObjectURL(file);
+        });
+    }
 });

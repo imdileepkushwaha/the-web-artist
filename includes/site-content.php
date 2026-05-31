@@ -31,6 +31,24 @@ function loadSiteFaq(PDO $conn): array
     }
 }
 
+function loadSitePortfolio(PDO $conn): array
+{
+    try {
+        return getPortfolioProjects($conn, true) ?: [];
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+function loadSiteTrustedClients(PDO $conn): array
+{
+    try {
+        return getTrustedClients($conn, true) ?: [];
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
 function initSiteContent(): array
 {
     $conn = getDbConnection();
@@ -39,5 +57,7 @@ function initSiteContent(): array
         'services' => loadSiteServices($conn),
         'testimonials' => loadSiteTestimonials($conn),
         'faq' => loadSiteFaq($conn),
+        'portfolio' => loadSitePortfolio($conn),
+        'trusted_clients' => loadSiteTrustedClients($conn),
     ];
 }

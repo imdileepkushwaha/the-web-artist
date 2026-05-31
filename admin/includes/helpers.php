@@ -24,6 +24,70 @@ function setSetting(PDO $conn, string $key, string $value): bool
     return $stmt->execute([':key' => $key, ':value' => $value]);
 }
 
+function getSiteLogoPath(PDO $conn): string
+{
+    $logo = trim((string) getSetting($conn, 'site_logo', 'images/twa-logo.png'));
+
+    return $logo !== '' ? $logo : 'images/twa-logo.png';
+}
+
+function handleSiteLogoUpload(?string $currentLogo = null): array
+{
+    if (empty($_FILES['site_logo_file']['name']) || (int) ($_FILES['site_logo_file']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+        return ['success' => false, 'path' => null, 'message' => ''];
+    }
+
+    $file = $_FILES['site_logo_file'];
+    $error = (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE);
+
+    if ($error !== UPLOAD_ERR_OK) {
+        return ['success' => false, 'path' => null, 'message' => 'Logo upload failed. Please try again.'];
+    }
+
+    if (($file['size'] ?? 0) > 2 * 1024 * 1024) {
+        return ['success' => false, 'path' => null, 'message' => 'Logo must be 2 MB or smaller.'];
+    }
+
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $mime = $finfo ? finfo_file($finfo, $file['tmp_name']) : '';
+    if ($finfo) {
+        finfo_close($finfo);
+    }
+
+    $allowed = [
+        'image/png' => 'png',
+        'image/jpeg' => 'jpg',
+        'image/webp' => 'webp',
+        'image/gif' => 'gif',
+        'image/svg+xml' => 'svg',
+    ];
+
+    if (!isset($allowed[$mime])) {
+        return ['success' => false, 'path' => null, 'message' => 'Logo must be PNG, JPG, WEBP, GIF, or SVG.'];
+    }
+
+    $uploadDir = dirname(__DIR__, 2) . '/uploads/site';
+    if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true) && !is_dir($uploadDir)) {
+        return ['success' => false, 'path' => null, 'message' => 'Unable to create upload folder.'];
+    }
+
+    $filename = 'logo-' . date('Ymd-His') . '-' . bin2hex(random_bytes(4)) . '.' . $allowed[$mime];
+    $destination = $uploadDir . '/' . $filename;
+
+    if (!move_uploaded_file($file['tmp_name'], $destination)) {
+        return ['success' => false, 'path' => null, 'message' => 'Unable to save uploaded logo.'];
+    }
+
+    if ($currentLogo && strpos(str_replace('\\', '/', $currentLogo), 'uploads/site/') === 0) {
+        $oldPath = dirname(__DIR__, 2) . '/' . ltrim(str_replace('\\', '/', $currentLogo), '/');
+        if (is_file($oldPath)) {
+            @unlink($oldPath);
+        }
+    }
+
+    return ['success' => true, 'path' => 'uploads/site/' . $filename, 'message' => 'Logo uploaded successfully.'];
+}
+
 function getAllSettings(PDO $conn): array
 {
     $rows = $conn->query('SELECT setting_key, setting_value FROM admin_settings ORDER BY setting_key ASC')->fetchAll();
@@ -135,6 +199,22 @@ function createAdminUser(PDO $conn, string $username, string $password, string $
         ':name' => $name,
         ':email' => $email,
         ':role' => $role,
+    ]);
+}
+
+function updateAdminUser(PDO $conn, int $id, string $name, ?string $email, string $role): bool
+{
+    if ($id <= 0 || !in_array($role, ['admin', 'viewer'], true)) {
+        return false;
+    }
+
+    $stmt = $conn->prepare('UPDATE admin_users SET name = :name, email = :email, role = :role WHERE id = :id');
+
+    return $stmt->execute([
+        ':name' => $name,
+        ':email' => $email,
+        ':role' => $role,
+        ':id' => $id,
     ]);
 }
 
@@ -340,6 +420,96 @@ function getFollowUpDueEnquiries(PDO $conn, int $limit = 50): array
     $stmt->execute();
 
     return $stmt->fetchAll();
+}
+
+function getFollowUpTodayEnquiries(PDO $conn, int $limit = 50): array
+{
+    $stmt = $conn->prepare("SELECT e.*, u.name AS assigned_name
+        FROM enquiries e
+        LEFT JOIN admin_users u ON u.id = e.assigned_to
+        WHERE e.follow_up_date = CURDATE()
+          AND e.status NOT IN ('closed')
+        ORDER BY e.created_at ASC
+        LIMIT :limit");
+    $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+    $stmt->execute();
+
+    return $stmt->fetchAll();
+}
+
+function getFollowUpOverdueEnquiries(PDO $conn, int $limit = 50): array
+{
+    $stmt = $conn->prepare("SELECT e.*, u.name AS assigned_name
+        FROM enquiries e
+        LEFT JOIN admin_users u ON u.id = e.assigned_to
+        WHERE e.follow_up_date IS NOT NULL
+          AND e.follow_up_date < CURDATE()
+          AND e.status NOT IN ('closed')
+        ORDER BY e.follow_up_date ASC, e.created_at ASC
+        LIMIT :limit");
+    $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+    $stmt->execute();
+
+    return $stmt->fetchAll();
+}
+
+function getFollowUpDueCount(PDO $conn): int
+{
+    $row = $conn->query("SELECT COUNT(*) AS count FROM enquiries
+        WHERE follow_up_date IS NOT NULL
+          AND follow_up_date <= CURDATE()
+          AND status NOT IN ('closed')")->fetch();
+
+    return (int) ($row['count'] ?? 0);
+}
+
+function maybeSendFollowUpReminderEmail(PDO $conn): void
+{
+    if (getSetting($conn, 'follow_up_email_reminder', '1') !== '1') {
+        return;
+    }
+
+    $today = date('Y-m-d');
+    if (getSetting($conn, 'follow_up_reminder_last_sent', '') === $today) {
+        return;
+    }
+
+    $dueCount = getFollowUpDueCount($conn);
+    if ($dueCount === 0) {
+        return;
+    }
+
+    $notifyEmail = trim((string) getSetting($conn, 'notify_email', ''));
+    if ($notifyEmail === '') {
+        return;
+    }
+
+    $overdue = getFollowUpOverdueEnquiries($conn, 5);
+    $todayItems = getFollowUpTodayEnquiries($conn, 5);
+    $body = "You have {$dueCount} enquiry/enquiries with follow-ups due.\n\n";
+
+    if (!empty($todayItems)) {
+        $body .= "Due today:\n";
+        foreach ($todayItems as $item) {
+            $body .= '- #' . $item['id'] . ' ' . ($item['name'] ?? '') . ' (' . ($item['service'] ?? '') . ")\n";
+        }
+        $body .= "\n";
+    }
+
+    if (!empty($overdue)) {
+        $body .= "Overdue:\n";
+        foreach ($overdue as $item) {
+            $body .= '- #' . $item['id'] . ' ' . ($item['name'] ?? '') . ' — due ' . ($item['follow_up_date'] ?? '') . "\n";
+        }
+    }
+
+    $body .= "\nLog in to the admin panel to review: enquiries.php?follow_up=due\n";
+
+    $result = sendSystemEmail($notifyEmail, 'Follow-up Reminder: ' . $dueCount . ' due', $body);
+
+    if ($result['success']) {
+        setSetting($conn, 'follow_up_reminder_last_sent', $today);
+    }
 }
 
 function getActivityLog(PDO $conn, int $limit = 50, int $offset = 0): array
@@ -699,7 +869,7 @@ function globalAdminSearch(PDO $conn, string $query, int $limit = 8): array
 
 function generateDatabaseBackup(PDO $conn): string
 {
-    $tables = ['enquiries', 'enquiry_notes', 'admin_settings', 'admin_users', 'faq_items', 'testimonials', 'services', 'email_templates', 'activity_log', 'login_history', 'site_visits'];
+    $tables = ['enquiries', 'enquiry_notes', 'admin_settings', 'admin_users', 'faq_items', 'testimonials', 'services', 'portfolio_projects', 'trusted_clients', 'email_templates', 'activity_log', 'login_history', 'site_visits'];
     $sql = "-- The Web Artist Database Backup\n-- Generated: " . date('Y-m-d H:i:s') . "\n\n";
 
     foreach ($tables as $table) {
@@ -791,7 +961,229 @@ function getVisitStatsDetailed(PDO $conn, int $days = 30): array
         GROUP BY page
         ORDER BY hits DESC
         LIMIT 10");
-    $stats['by_page'] = $pageStmt->fetchAll();
+    $stats['by_page'] = $pageStmt ? $pageStmt->fetchAll() : [];
 
     return $stats;
+}
+
+function getEnquirySourceStats(PDO $conn, ?string $from = null, ?string $to = null): array
+{
+    $where = [];
+    $params = [];
+
+    if ($from) {
+        $where[] = 'DATE(created_at) >= :from_date';
+        $params[':from_date'] = $from;
+    }
+
+    if ($to) {
+        $where[] = 'DATE(created_at) <= :to_date';
+        $params[':to_date'] = $to;
+    }
+
+    $whereSql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+    $stmt = $conn->prepare("SELECT source, COUNT(*) AS count FROM enquiries {$whereSql} GROUP BY source ORDER BY count DESC");
+    $stmt->execute($params);
+
+    return $stmt->fetchAll();
+}
+
+function getEnquiryServiceStats(PDO $conn, int $limit = 10, ?string $from = null, ?string $to = null): array
+{
+    $where = [];
+    $params = [];
+
+    if ($from) {
+        $where[] = 'DATE(created_at) >= :from_date';
+        $params[':from_date'] = $from;
+    }
+
+    if ($to) {
+        $where[] = 'DATE(created_at) <= :to_date';
+        $params[':to_date'] = $to;
+    }
+
+    $whereSql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+    $stmt = $conn->prepare("SELECT service, COUNT(*) AS count FROM enquiries {$whereSql} GROUP BY service ORDER BY count DESC LIMIT :limit");
+    foreach ($params as $key => $value) {
+        $stmt->bindValue($key, $value);
+    }
+    $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+    $stmt->execute();
+
+    return $stmt->fetchAll();
+}
+
+function getEnquiryMonthlyTrend(PDO $conn, int $months = 6): array
+{
+    $stmt = $conn->prepare("SELECT DATE_FORMAT(created_at, '%Y-%m') AS month_key,
+            DATE_FORMAT(created_at, '%b %Y') AS month_label,
+            COUNT(*) AS count
+        FROM enquiries
+        WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL :months MONTH)
+        GROUP BY month_key, month_label
+        ORDER BY month_key ASC");
+    $stmt->bindValue(':months', $months, PDO::PARAM_INT);
+    $stmt->execute();
+
+    return $stmt->fetchAll();
+}
+
+function getPortfolioProjects(PDO $conn, bool $activeOnly = false): array
+{
+    $sql = 'SELECT * FROM portfolio_projects';
+
+    if ($activeOnly) {
+        $sql .= ' WHERE is_active = 1';
+    }
+
+    $sql .= ' ORDER BY sort_order ASC, id ASC';
+
+    return $conn->query($sql)->fetchAll();
+}
+
+function getPortfolioProjectById(PDO $conn, int $id): ?array
+{
+    $stmt = $conn->prepare('SELECT * FROM portfolio_projects WHERE id = :id LIMIT 1');
+    $stmt->execute([':id' => $id]);
+    $item = $stmt->fetch();
+
+    return $item ?: null;
+}
+
+function createPortfolioProject(PDO $conn, string $title, string $category, string $description, string $imageUrl, string $projectUrl, int $sortOrder = 0, bool $isActive = true): bool
+{
+    $stmt = $conn->prepare('INSERT INTO portfolio_projects (title, category, description, image_url, project_url, sort_order, is_active)
+        VALUES (:title, :category, :description, :image_url, :project_url, :sort_order, :is_active)');
+
+    return $stmt->execute([
+        ':title' => $title,
+        ':category' => $category,
+        ':description' => $description,
+        ':image_url' => $imageUrl,
+        ':project_url' => $projectUrl,
+        ':sort_order' => $sortOrder,
+        ':is_active' => $isActive ? 1 : 0,
+    ]);
+}
+
+function updatePortfolioProject(PDO $conn, int $id, string $title, string $category, string $description, string $imageUrl, string $projectUrl, int $sortOrder, bool $isActive): bool
+{
+    $stmt = $conn->prepare('UPDATE portfolio_projects SET title = :title, category = :category, description = :description,
+        image_url = :image_url, project_url = :project_url, sort_order = :sort_order, is_active = :is_active WHERE id = :id');
+
+    return $stmt->execute([
+        ':title' => $title,
+        ':category' => $category,
+        ':description' => $description,
+        ':image_url' => $imageUrl,
+        ':project_url' => $projectUrl,
+        ':sort_order' => $sortOrder,
+        ':is_active' => $isActive ? 1 : 0,
+        ':id' => $id,
+    ]);
+}
+
+function deletePortfolioProject(PDO $conn, int $id): bool
+{
+    $stmt = $conn->prepare('DELETE FROM portfolio_projects WHERE id = :id');
+    return $stmt->execute([':id' => $id]);
+}
+
+function getTrustedClients(PDO $conn, bool $activeOnly = false): array
+{
+    $sql = 'SELECT * FROM trusted_clients';
+
+    if ($activeOnly) {
+        $sql .= ' WHERE is_active = 1';
+    }
+
+    $sql .= ' ORDER BY sort_order ASC, id ASC';
+
+    return $conn->query($sql)->fetchAll();
+}
+
+function getTrustedClientById(PDO $conn, int $id): ?array
+{
+    $stmt = $conn->prepare('SELECT * FROM trusted_clients WHERE id = :id LIMIT 1');
+    $stmt->execute([':id' => $id]);
+    $item = $stmt->fetch();
+
+    return $item ?: null;
+}
+
+function createTrustedClient(PDO $conn, string $name, string $logoText, int $sortOrder = 0, bool $isActive = true): bool
+{
+    $stmt = $conn->prepare('INSERT INTO trusted_clients (name, logo_text, sort_order, is_active) VALUES (:name, :logo_text, :sort_order, :is_active)');
+
+    return $stmt->execute([
+        ':name' => $name,
+        ':logo_text' => $logoText,
+        ':sort_order' => $sortOrder,
+        ':is_active' => $isActive ? 1 : 0,
+    ]);
+}
+
+function updateTrustedClient(PDO $conn, int $id, string $name, string $logoText, int $sortOrder, bool $isActive): bool
+{
+    $stmt = $conn->prepare('UPDATE trusted_clients SET name = :name, logo_text = :logo_text, sort_order = :sort_order, is_active = :is_active WHERE id = :id');
+
+    return $stmt->execute([
+        ':name' => $name,
+        ':logo_text' => $logoText,
+        ':sort_order' => $sortOrder,
+        ':is_active' => $isActive ? 1 : 0,
+        ':id' => $id,
+    ]);
+}
+
+function deleteTrustedClient(PDO $conn, int $id): bool
+{
+    $stmt = $conn->prepare('DELETE FROM trusted_clients WHERE id = :id');
+    return $stmt->execute([':id' => $id]);
+}
+
+function buildWhatsAppUrl(string $phone, string $message): string
+{
+    $digits = preg_replace('/\D+/', '', $phone);
+
+    if ($digits === '') {
+        $digits = '919876543210';
+    }
+
+    return 'https://wa.me/' . $digits . '?text=' . rawurlencode($message);
+}
+
+function getWhatsAppQuickTemplates(): array
+{
+    return [
+        ['name' => 'Intro', 'message' => 'Hi {{name}}, thank you for your enquiry about {{service}}. This is {{admin_name}} from The Web Artist. How can I help you today?'],
+        ['name' => 'Follow Up', 'message' => 'Hi {{name}}, just following up on your enquiry for {{service}}. Are you available for a quick call today?'],
+        ['name' => 'Demo Invite', 'message' => 'Hi {{name}}, we would love to show you a demo of our {{service}} solution. When would be a good time for you?'],
+    ];
+}
+
+function applyMessageTemplate(string $body, array $enquiry, ?string $adminName = null): string
+{
+    $conn = getDbConnection();
+    $sitePhone = getSetting($conn, 'site_phone', '+91 98765 43210');
+
+    $replacements = [
+        '{name}' => $enquiry['name'] ?? '',
+        '{email}' => $enquiry['email'] ?? '',
+        '{phone}' => $enquiry['phone'] ?? '',
+        '{service}' => $enquiry['service'] ?? '',
+        '{message}' => $enquiry['message'] ?? '',
+        '{site_phone}' => $sitePhone ?? '',
+        '{admin_name}' => $adminName ?? 'The Web Artist Team',
+        '{{name}}' => $enquiry['name'] ?? '',
+        '{{email}}' => $enquiry['email'] ?? '',
+        '{{phone}}' => $enquiry['phone'] ?? '',
+        '{{service}}' => $enquiry['service'] ?? '',
+        '{{message}}' => $enquiry['message'] ?? '',
+        '{{site_phone}}' => $sitePhone ?? '',
+        '{{admin_name}}' => $adminName ?? 'The Web Artist Team',
+    ];
+
+    return str_replace(array_keys($replacements), array_values($replacements), $body);
 }

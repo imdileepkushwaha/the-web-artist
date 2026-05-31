@@ -12,6 +12,8 @@ function ensureAllAdminTables(PDO $conn): void
     ensureFaqItemsTable($conn);
     ensureTestimonialsTable($conn);
     ensureServicesTable($conn);
+    ensurePortfolioProjectsTable($conn);
+    ensureTrustedClientsTable($conn);
 
     seedDefaultAdminUser($conn);
     seedDefaultSettings($conn);
@@ -19,6 +21,8 @@ function ensureAllAdminTables(PDO $conn): void
     seedDefaultFaqItems($conn);
     seedDefaultTestimonials($conn);
     seedDefaultServices($conn);
+    seedDefaultPortfolioProjects($conn);
+    seedDefaultTrustedClients($conn);
 }
 
 function migrateEnquiriesExtendedColumns(PDO $conn): void
@@ -163,6 +167,31 @@ function seedDefaultAdminUser(PDO $conn): void
     ]);
 }
 
+function ensurePortfolioProjectsTable(PDO $conn): void
+{
+    $conn->exec("CREATE TABLE IF NOT EXISTS portfolio_projects (
+        id INT(11) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(150) NOT NULL,
+        category VARCHAR(100) NOT NULL DEFAULT '',
+        description TEXT NOT NULL,
+        image_url VARCHAR(500) NOT NULL DEFAULT '',
+        project_url VARCHAR(500) NOT NULL DEFAULT '',
+        sort_order INT(11) NOT NULL DEFAULT 0,
+        is_active TINYINT(1) NOT NULL DEFAULT 1
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+
+function ensureTrustedClientsTable(PDO $conn): void
+{
+    $conn->exec("CREATE TABLE IF NOT EXISTS trusted_clients (
+        id INT(11) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        logo_text VARCHAR(10) NOT NULL DEFAULT '',
+        sort_order INT(11) NOT NULL DEFAULT 0,
+        is_active TINYINT(1) NOT NULL DEFAULT 1
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+
 function seedDefaultSettings(PDO $conn): void
 {
     $defaults = [
@@ -170,8 +199,10 @@ function seedDefaultSettings(PDO $conn): void
         'notify_email' => defined('SITE_EMAIL') ? SITE_EMAIL : 'hello@thewebartist.com',
         'site_email' => defined('SITE_EMAIL') ? SITE_EMAIL : 'hello@thewebartist.com',
         'site_phone' => defined('SITE_PHONE') ? SITE_PHONE : '+91 98765 43210',
+        'site_logo' => 'images/twa-logo.png',
         'email_from_name' => 'The Web Artist',
         'notify_enquiries_enabled' => '1',
+        'follow_up_email_reminder' => '1',
         'smtp_enabled' => '0',
         'smtp_host' => '',
         'smtp_port' => '587',
@@ -180,6 +211,36 @@ function seedDefaultSettings(PDO $conn): void
         'smtp_password' => '',
         'session_timeout_minutes' => '30',
         'dark_mode' => '0',
+        'hero_badge' => 'Trusted IT Solutions Partner',
+        'hero_title_line1' => 'Transform Your',
+        'hero_title_accent' => 'Business',
+        'hero_title_line2' => 'With Smart Software',
+        'hero_subtitle' => 'We deliver cutting-edge solutions — Ecommerce, School & Hospital Management, and AI Support Systems — built to scale with your growth.',
+        'hero_tags' => 'Ecommerce,Healthcare,Education,AI Systems',
+        'hero_stat1_num' => '50+',
+        'hero_stat1_label' => 'Projects',
+        'hero_stat2_num' => '98%',
+        'hero_stat2_label' => 'Satisfaction',
+        'hero_stat3_num' => '24/7',
+        'hero_stat3_label' => 'Support',
+        'hero_form_badge' => 'Free Consultation',
+        'hero_form_title' => 'Request a Demo',
+        'hero_form_subtitle' => 'Share your requirements — our team will reach out within 24 hours.',
+        'business_hours' => 'Mon – Sat, 9:00 AM – 6:00 PM IST',
+        'site_address' => '',
+        'site_address_line2' => '',
+        'site_location_enabled' => '0',
+        'whatsapp_default_message' => 'Hi, I would like to know more about your services.',
+        'about_badge' => 'About Us',
+        'about_title_accent' => 'Excellence',
+        'about_title_sub' => 'at The Web Artist',
+        'about_lead' => 'We are a premier IT company dedicated to crafting high-quality, modern, and scalable software solutions for growing businesses.',
+        'about_desc' => 'With years of experience, we empower organizations across healthcare, education, retail, and direct sales — turning ideas into reliable products through robust engineering and beautiful design.',
+        'seo_title' => 'The Web Artist - IT Solutions',
+        'seo_description' => 'The Web Artist delivers custom software solutions — Ecommerce, School & Hospital Management, MLM, and AI systems — for businesses across India.',
+        'seo_keywords' => 'web development, software company, ecommerce software, school management software, hospital software, IT solutions India, The Web Artist',
+        'google_analytics_id' => '',
+        'og_image_url' => '',
     ];
 
     $stmt = $conn->prepare('INSERT IGNORE INTO admin_settings (setting_key, setting_value) VALUES (:key, :value)');
@@ -330,8 +391,50 @@ function seedDefaultServices(PDO $conn): void
         ['title' => 'Appointment Booking Automation', 'description' => 'Streamlined scheduling for your clients and staff.', 'icon_emoji' => '📅', 'sort_order' => 9],
     ];
 
-    $stmt = $conn->prepare('INSERT INTO services (title, description, icon_emoji, sort_order, is_active)
-        VALUES (:title, :description, :icon_emoji, :sort_order, 1)');
+    foreach ($items as $item) {
+        $stmt->execute($item);
+    }
+}
+
+function seedDefaultPortfolioProjects(PDO $conn): void
+{
+    $count = (int) $conn->query('SELECT COUNT(*) FROM portfolio_projects')->fetchColumn();
+
+    if ($count > 0) {
+        return;
+    }
+
+    $items = [
+        ['title' => 'City Hospital Management', 'category' => 'Healthcare', 'description' => 'Complete hospital ERP with patient records, billing, and pharmacy integration.', 'image_url' => '', 'project_url' => '', 'sort_order' => 1],
+        ['title' => 'RetailPro Ecommerce', 'category' => 'Ecommerce', 'description' => 'Multi-vendor ecommerce platform with inventory sync and payment gateway.', 'image_url' => '', 'project_url' => '', 'sort_order' => 2],
+        ['title' => 'Global Public School ERP', 'category' => 'Education', 'description' => 'School management with attendance, fees, exams, and parent portal.', 'image_url' => '', 'project_url' => '', 'sort_order' => 3],
+    ];
+
+    $stmt = $conn->prepare('INSERT INTO portfolio_projects (title, category, description, image_url, project_url, sort_order, is_active)
+        VALUES (:title, :category, :description, :image_url, :project_url, :sort_order, 1)');
+
+    foreach ($items as $item) {
+        $stmt->execute($item);
+    }
+}
+
+function seedDefaultTrustedClients(PDO $conn): void
+{
+    $count = (int) $conn->query('SELECT COUNT(*) FROM trusted_clients')->fetchColumn();
+
+    if ($count > 0) {
+        return;
+    }
+
+    $items = [
+        ['name' => 'City Hospital', 'logo_text' => 'CH', 'sort_order' => 1],
+        ['name' => 'RetailPro', 'logo_text' => 'RP', 'sort_order' => 2],
+        ['name' => 'Global School', 'logo_text' => 'GS', 'sort_order' => 3],
+        ['name' => 'MediCare', 'logo_text' => 'MC', 'sort_order' => 4],
+        ['name' => 'TechVentures', 'logo_text' => 'TV', 'sort_order' => 5],
+    ];
+
+    $stmt = $conn->prepare('INSERT INTO trusted_clients (name, logo_text, sort_order, is_active) VALUES (:name, :logo_text, :sort_order, 1)');
 
     foreach ($items as $item) {
         $stmt->execute($item);

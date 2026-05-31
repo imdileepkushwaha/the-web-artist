@@ -16,6 +16,10 @@ $visitChart = getRecentVisitDays($conn, 7);
 $recentEnquiries = getRecentEnquiries($conn, 6);
 $serviceBreakdown = getServiceBreakdown($conn, 5);
 $followUps = getFollowUpDueEnquiries($conn, 5);
+$followUpsToday = getFollowUpTodayEnquiries($conn, 5);
+$followUpsOverdue = getFollowUpOverdueEnquiries($conn, 5);
+$followUpDueCount = getFollowUpDueCount($conn);
+maybeSendFollowUpReminderEmail($conn);
 $adminUsers = getAdminUsers($conn, true);
 
 $maxServiceCount = 1;
@@ -88,7 +92,55 @@ require __DIR__ . '/includes/header.php';
     </div>
 </div>
 
-<?php if (!empty($followUps)): ?>
+<?php if (!empty($followUpsOverdue)): ?>
+<div class="panel follow-up-panel follow-up-panel-overdue">
+    <?php
+    $panelTitle = 'Overdue Follow-ups';
+    $panelMeta = count($followUpsOverdue) . ' overdue — needs immediate attention';
+    $panelIconSvg = panelIconSvg('follow-up');
+    $panelIconColor = 'orange';
+    require __DIR__ . '/includes/panel-header.php';
+    ?>
+    <div class="panel-body">
+        <div class="dash-enquiry-list">
+            <?php foreach ($followUpsOverdue as $enquiry): ?>
+                <a href="enquiry.php?id=<?= (int) $enquiry['id'] ?>" class="dash-enquiry-item is-new">
+                    <div class="dash-enquiry-avatar"><?= sanitize(getInitials($enquiry['name'])) ?></div>
+                    <div class="dash-enquiry-info">
+                        <strong><?= sanitize($enquiry['name']) ?></strong>
+                        <span class="dash-enquiry-service">Was due: <?= sanitize($enquiry['follow_up_date']) ?><?= !empty($enquiry['assigned_name']) ? ' · ' . sanitize($enquiry['assigned_name']) : '' ?></span>
+                    </div>
+                </a>
+            <?php endforeach; ?>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
+<?php if (!empty($followUpsToday)): ?>
+<div class="panel follow-up-panel">
+    <?php
+    $panelTitle = 'Follow-ups Due Today';
+    $panelMeta = count($followUpsToday) . ' scheduled for today';
+    $panelIconSvg = panelIconSvg('follow-up');
+    $panelIconColor = 'orange';
+    require __DIR__ . '/includes/panel-header.php';
+    ?>
+    <div class="panel-body">
+        <div class="dash-enquiry-list">
+            <?php foreach ($followUpsToday as $enquiry): ?>
+                <a href="enquiry.php?id=<?= (int) $enquiry['id'] ?>" class="dash-enquiry-item is-new">
+                    <div class="dash-enquiry-avatar"><?= sanitize(getInitials($enquiry['name'])) ?></div>
+                    <div class="dash-enquiry-info">
+                        <strong><?= sanitize($enquiry['name']) ?></strong>
+                        <span class="dash-enquiry-service"><?= sanitize($enquiry['service']) ?><?= !empty($enquiry['assigned_name']) ? ' · ' . sanitize($enquiry['assigned_name']) : '' ?></span>
+                    </div>
+                </a>
+            <?php endforeach; ?>
+        </div>
+    </div>
+</div>
+<?php elseif ($followUpDueCount > 0 && !empty($followUps)): ?>
 <div class="panel follow-up-panel">
     <?php
     $panelTitle = 'Follow-ups Due';

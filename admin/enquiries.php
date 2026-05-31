@@ -37,6 +37,7 @@ $stats = getDashboardStats($conn);
 $filters = [
     'status' => trim($_GET['status'] ?? ''),
     'search' => trim($_GET['search'] ?? ''),
+    'follow_up' => trim($_GET['follow_up'] ?? ''),
 ];
 
 $page = max(1, (int) ($_GET['page'] ?? 1));
@@ -54,7 +55,10 @@ require __DIR__ . '/includes/header.php';
 $queryBase = http_build_query(array_filter([
     'status' => $filters['status'],
     'search' => $filters['search'],
+    'follow_up' => $filters['follow_up'],
 ]));
+
+$followUpDueCount = getFollowUpDueCount($conn);
 
 $statusTabs = [
     '' => ['label' => 'All', 'count' => $stats['total'], 'class' => ''],
@@ -79,6 +83,12 @@ $statusTabs = [
             <span class="pill-count"><?= (int) $tab['count'] ?></span>
         </a>
     <?php endforeach; ?>
+    <?php if ($followUpDueCount > 0): ?>
+        <a href="enquiries.php?follow_up=due" class="enquiry-stat-pill pill-follow-up <?= $filters['follow_up'] === 'due' ? 'active' : '' ?>">
+            <span class="pill-label">Follow-ups Due</span>
+            <span class="pill-count"><?= $followUpDueCount ?></span>
+        </a>
+    <?php endif; ?>
 </div>
 
 <div class="panel enquiries-panel">
@@ -100,6 +110,9 @@ $statusTabs = [
             <form id="enquirySearchForm" class="panel-header-search" method="GET" action="enquiries.php">
                 <?php if ($filters['status'] !== ''): ?>
                     <input type="hidden" name="status" value="<?= sanitize($filters['status']) ?>">
+                <?php endif; ?>
+                <?php if ($filters['follow_up'] !== ''): ?>
+                    <input type="hidden" name="follow_up" value="<?= sanitize($filters['follow_up']) ?>">
                 <?php endif; ?>
                 <div class="search-input-wrap">
                     <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>

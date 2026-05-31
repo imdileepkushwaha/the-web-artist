@@ -8,10 +8,46 @@
     require __DIR__ . '/panel-header.php';
     ?>
     <div class="panel-body">
-        <form method="POST" class="admin-form">
+        <?php
+        $siteLogoPath = trim($settings['site_logo'] ?? 'images/twa-logo.png');
+        if ($siteLogoPath === '') {
+            $siteLogoPath = 'images/twa-logo.png';
+        }
+        $siteLogoPreview = preg_match('#^https?://#i', $siteLogoPath) ? $siteLogoPath : '../' . ltrim(str_replace('\\', '/', $siteLogoPath), '/');
+        ?>
+        <form method="POST" class="admin-form" enctype="multipart/form-data">
             <input type="hidden" name="action" value="site">
 
             <div class="settings-section-divider settings-section-divider-first">
+                <h3>Website Logo</h3>
+                <p>Logo shown in the website navigation bar.</p>
+            </div>
+
+            <div class="settings-logo-block">
+                <div class="settings-logo-preview">
+                    <img src="<?= sanitize($siteLogoPreview) ?>" alt="Current website logo" id="siteLogoPreview">
+                </div>
+                <div class="settings-logo-fields">
+                    <div class="form-group">
+                        <label for="site_logo_file">Upload New Logo</label>
+                        <input type="file" id="site_logo_file" name="site_logo_file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml">
+                        <span class="form-hint">PNG, JPG, WEBP, GIF or SVG. Max 2 MB.</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="site_logo">Or Logo Path / URL</label>
+                        <input type="text" id="site_logo" name="site_logo" value="<?= sanitize($siteLogoPath) ?>" placeholder="images/twa-logo.png">
+                        <span class="form-hint">Relative path (e.g. images/logo.png) or full URL.</span>
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-label settings-checkbox-label">
+                            <input type="checkbox" name="reset_site_logo" value="1">
+                            <span>Reset to default logo</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-section-divider">
                 <h3>Website Contact</h3>
                 <p>Details shown on the public website.</p>
             </div>
