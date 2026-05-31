@@ -278,7 +278,7 @@ function twaStrimwidth(string $value, int $start, int $width, string $trimMarker
     return strlen($value) > $width ? $chunk . $trimMarker : $chunk;
 }
 
-function sendEnquiryNotificationEmail(array $enquiry): bool
+function sendEnquiryNotificationEmail(array $enquiry): array
 {
     return sendEnquiryNotificationIfEnabled($enquiry);
 }
@@ -1225,6 +1225,55 @@ function setEncryptedSetting(PDO $conn, string $key, string $value): void
 function getEncryptedSetting(PDO $conn, string $key, string $default = ''): string
 {
     return twaDecryptSecret((string) getSetting($conn, $key, $default));
+}
+
+function normalizeSmtpHost(string $host): string
+{
+    $host = trim($host);
+
+    if ($host === '') {
+        return '';
+    }
+
+    $host = preg_replace('#^[a-z][a-z0-9+.-]*://#i', '', $host);
+    $host = preg_replace('~[/?#].*$~', '', $host);
+
+    if (preg_match('#^(\[[^\]]+\]|[^:\s]+)(?::\d+)?$#', $host, $matches)) {
+        $host = $matches[1];
+    }
+
+    $host = trim($host, '[]');
+
+    if (!filter_var($host, FILTER_VALIDATE_IP)) {
+        $host = strtolower($host);
+    }
+
+    return $host;
+}
+
+function validateSmtpHost(string $host): ?string
+{
+    $host = normalizeSmtpHost($host);
+
+    if ($host === '') {
+        return 'SMTP host is required when SMTP is enabled.';
+    }
+
+    if (filter_var($host, FILTER_VALIDATE_IP)) {
+        return null;
+    }
+
+    if (!preg_match('/^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*)$/i', $host)) {
+        return 'Invalid SMTP host. Use only the server name, e.g. smtp.gmail.com (no https://, slashes, or port in this field).';
+    }
+
+    $resolved = @gethostbyname($host);
+
+    if ($resolved === $host) {
+        return 'Cannot resolve SMTP host "' . $host . '". Check spelling and DNS. Use your provider\'s SMTP hostname (e.g. smtp.gmail.com, smtp.hostinger.com) — not your email address.';
+    }
+
+    return null;
 }
 
 function getWhatsAppTemplates(PDO $conn): array

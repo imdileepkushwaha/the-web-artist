@@ -69,7 +69,7 @@ try {
     try {
         sendEnquiryNotificationEmail($enquiry);
     } catch (Throwable $mailError) {
-        // Enquiry is saved even if notification email fails.
+        // Enquiry is saved even if notification email fails (see Email Log in admin).
     }
 
     header('Location: thank-you.php');

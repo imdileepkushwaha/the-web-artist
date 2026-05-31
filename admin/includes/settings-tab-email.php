@@ -1,3 +1,61 @@
+<?php
+$emailDiagnostics = getEmailSetupDiagnostics($conn);
+$emailFlowTestResults = $_SESSION['email_flow_test_results'] ?? null;
+unset($_SESSION['email_flow_test_results']);
+
+$flowLabels = [
+    'test_email' => '1. Admin test email (Email Setup button)',
+    'enquiry_notification' => '2. New enquiry alert (website form submit)',
+    'follow_up_reminder' => '3. Follow-up reminder (dashboard daily)',
+];
+?>
+<div class="panel settings-card email-setup-panel">
+    <?php
+    $panelTitle = 'Email Diagnostics';
+    $panelMeta = 'Check all email paths before going live';
+    $panelIconSvg = panelIconSvg('email');
+    $panelIconColor = 'orange';
+    require __DIR__ . '/panel-header.php';
+    ?>
+    <div class="panel-body">
+        <p class="settings-section-intro">Emails are sent from these places: <strong>Test Email</strong>, <strong>website enquiry form</strong>, <strong>follow-up reminders</strong> (dashboard), and <strong>manual Send Email</strong> on an enquiry.</p>
+
+        <ul class="email-diagnostics-list">
+            <?php foreach ($emailDiagnostics as $check): ?>
+                <li class="email-diagnostic-item <?= !empty($check['ok']) ? 'is-ok' : 'is-error' ?>">
+                    <span class="email-diagnostic-icon"><?= !empty($check['ok']) ? '✓' : '✕' ?></span>
+                    <div>
+                        <strong><?= sanitize($check['label']) ?></strong>
+                        <span><?= sanitize($check['detail']) ?></span>
+                    </div>
+                </li>
+            <?php endforeach; ?>
+        </ul>
+
+        <?php if (is_array($emailFlowTestResults)): ?>
+            <div class="settings-section-divider"><h3>Last flow test results</h3></div>
+            <ul class="email-diagnostics-list">
+                <?php foreach ($emailFlowTestResults as $key => $result): ?>
+                    <li class="email-diagnostic-item <?= !empty($result['success']) ? 'is-ok' : 'is-error' ?>">
+                        <span class="email-diagnostic-icon"><?= !empty($result['success']) ? '✓' : '✕' ?></span>
+                        <div>
+                            <strong><?= sanitize($flowLabels[$key] ?? $key) ?></strong>
+                            <span><?= sanitize($result['message'] ?? '') ?></span>
+                        </div>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+        <?php endif; ?>
+
+        <form method="POST" class="admin-form" style="margin-top:16px;">
+            <?= csrfField() ?>
+            <input type="hidden" name="action" value="test_all_emails">
+            <button type="submit" class="btn btn-primary">Run All Email Flow Tests (3 emails)</button>
+            <p class="form-hint" style="margin-top:8px;">Sends test versions of all 3 automated emails to your notification address. Check inbox and <a href="settings.php?tab=email-log">Email Log</a>.</p>
+        </form>
+    </div>
+</div>
+
 <div class="panel settings-card email-setup-panel">
     <?php
     $panelTitle = 'SMTP Configuration';
@@ -24,16 +82,18 @@
                 <div class="settings-form-grid">
                     <div class="form-group">
                         <label for="smtp_host">SMTP Host</label>
-                        <input type="text" id="smtp_host" name="smtp_host" value="<?= sanitize($settings['smtp_host'] ?? '') ?>" placeholder="smtp.gmail.com">
+                        <input type="text" id="smtp_host" name="smtp_host" value="<?= sanitize($settings['smtp_host'] ?? '') ?>" placeholder="smtp.gmail.com" autocomplete="off">
+                        <span class="form-hint">Hostname only — no <code>https://</code>, no port. Examples: <code>smtp.gmail.com</code>, <code>smtp.hostinger.com</code>, <code>mail.yourdomain.com</code></span>
                     </div>
                     <div class="form-group">
                         <label for="smtp_port">SMTP Port</label>
                         <input type="number" id="smtp_port" name="smtp_port" min="1" max="65535" value="<?= sanitize($settings['smtp_port'] ?? '587') ?>" placeholder="587">
+                        <span class="form-hint">587 = TLS, 465 = SSL</span>
                     </div>
                     <div class="form-group">
                         <label for="smtp_encryption">Encryption</label>
                         <select id="smtp_encryption" name="smtp_encryption">
-                            <?php foreach (['tls' => 'TLS (STARTTLS)', 'ssl' => 'SSL', 'none' => 'None'] as $value => $label): ?>
+                            <?php foreach (['tls' => 'TLS (STARTTLS — port 587)', 'ssl' => 'SSL (port 465)', 'none' => 'None'] as $value => $label): ?>
                                 <option value="<?= sanitize($value) ?>" <?= ($settings['smtp_encryption'] ?? 'tls') === $value ? 'selected' : '' ?>><?= sanitize($label) ?></option>
                             <?php endforeach; ?>
                         </select>
@@ -41,17 +101,24 @@
                     <div class="form-group">
                         <label for="smtp_username">SMTP Username</label>
                         <input type="text" id="smtp_username" name="smtp_username" value="<?= sanitize($settings['smtp_username'] ?? '') ?>" placeholder="your-email@gmail.com" autocomplete="off">
+                        <span class="form-hint">Usually your full email address — must match sender on many hosts.</span>
                     </div>
                     <div class="form-group settings-form-grid-full">
                         <label for="smtp_password">SMTP Password</label>
                         <div class="password-input-wrap">
-                            <input type="password" id="smtp_password" name="smtp_password" class="password-input" placeholder="<?= ($settings['smtp_password'] ?? '') !== '' ? '•••••••• (leave blank to keep)' : 'App password or SMTP password' ?>" autocomplete="new-password">
+                            <input type="password" id="smtp_password" name="smtp_password" class="password-input" placeholder="<?= smtpPasswordIsConfigured($conn) ? '•••••••• (leave blank to keep)' : 'Enter SMTP / app password' ?>" autocomplete="new-password">
                             <button type="button" class="password-toggle" aria-label="Show password" aria-pressed="false">
                                 <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                                 <svg class="icon-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
                             </button>
                         </div>
-                        <span class="form-hint">Leave blank to keep the current password.</span>
+                        <span class="form-hint">After deploying to server, re-enter password here — encrypted passwords from local do not transfer.</span>
+                    </div>
+                    <div class="form-group settings-form-grid-full">
+                        <label class="checkbox-label settings-checkbox-label">
+                            <input type="checkbox" name="smtp_skip_ssl_verify" value="1" <?= ($settings['smtp_skip_ssl_verify'] ?? '0') === '1' ? 'checked' : '' ?>>
+                            <span>Relaxed SSL (shared hosting — use if TLS/SSL connection fails)</span>
+                        </label>
                     </div>
                 </div>
             </div>
@@ -64,7 +131,7 @@
         <form method="POST" class="admin-form" style="margin-top:20px;">
             <?= csrfField() ?>
             <input type="hidden" name="action" value="test_email">
-            <div class="settings-section-divider"><h3>Send Test Email</h3><p>Uses current SMTP / mail settings to send a test to your notification email.</p></div>
+            <div class="settings-section-divider"><h3>Send Test Email</h3><p>Single test to your notification email.</p></div>
             <button type="submit" class="btn btn-secondary">Send Test Email</button>
         </form>
     </div>

@@ -36,6 +36,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         settingsRedirect('email');
     }
 
+    if ($action === 'test_all_emails') {
+        $results = runAllEmailFlowTests($conn);
+        $_SESSION['email_flow_test_results'] = $results;
+
+        $passed = 0;
+        foreach ($results as $result) {
+            if (!empty($result['success'])) {
+                $passed++;
+            }
+        }
+
+        $total = count($results);
+        flashMessage(
+            $passed === $total ? 'success' : 'error',
+            "Email flow tests: {$passed}/{$total} passed. See results below and Email Log tab for details."
+        );
+        settingsRedirect('email');
+    }
+
     if ($action === 'whatsapp_save') {
         $id = (int) ($_POST['id'] ?? 0);
         $name = trim($_POST['name'] ?? '');
@@ -157,11 +176,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($action === 'email') {
-        setSetting($conn, 'smtp_enabled', isset($_POST['smtp_enabled']) ? '1' : '0');
-        setSetting($conn, 'smtp_host', trim($_POST['smtp_host'] ?? ''));
+        $smtpEnabled = isset($_POST['smtp_enabled']);
+        $smtpHost = normalizeSmtpHost(trim($_POST['smtp_host'] ?? ''));
+
+        if ($smtpEnabled && $smtpHost !== '') {
+            $hostError = validateSmtpHost($smtpHost);
+
+            if ($hostError !== null) {
+                flashMessage('error', $hostError);
+                settingsRedirect('email');
+            }
+        }
+
+        setSetting($conn, 'smtp_enabled', $smtpEnabled ? '1' : '0');
+        setSetting($conn, 'smtp_host', $smtpHost);
         setSetting($conn, 'smtp_port', (string) max(1, (int) ($_POST['smtp_port'] ?? 587)));
         setSetting($conn, 'smtp_encryption', trim($_POST['smtp_encryption'] ?? 'tls'));
         setSetting($conn, 'smtp_username', trim($_POST['smtp_username'] ?? ''));
+        setSetting($conn, 'smtp_skip_ssl_verify', isset($_POST['smtp_skip_ssl_verify']) ? '1' : '0');
 
         $smtpPassword = trim($_POST['smtp_password'] ?? '');
         if ($smtpPassword !== '') {
