@@ -717,7 +717,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.querySelectorAll('[data-modal-open]').forEach((trigger) => {
         trigger.addEventListener('click', () => {
-            openModal(trigger.getAttribute('data-modal-open'));
+            const modalId = trigger.getAttribute('data-modal-open');
+
+            if (modalId === 'sendEmailModal' && !trigger.classList.contains('enquiry-template-chip-btn')) {
+                const attachmentGroup = document.getElementById('emailAttachmentGroup');
+                const attachmentInput = document.getElementById('email_attachment');
+
+                if (attachmentGroup) {
+                    attachmentGroup.hidden = true;
+                }
+
+                if (attachmentInput) {
+                    attachmentInput.value = '';
+                }
+            }
+
+            openModal(modalId);
         });
     });
 
@@ -755,6 +770,8 @@ document.addEventListener('DOMContentLoaded', () => {
         chip.addEventListener('click', () => {
             const subjectField = document.getElementById('email_subject');
             const bodyField = document.getElementById('email_body');
+            const attachmentGroup = document.getElementById('emailAttachmentGroup');
+            const attachmentInput = document.getElementById('email_attachment');
             let template = {};
 
             try {
@@ -769,6 +786,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (bodyField && template.body) {
                 bodyField.value = template.body;
+            }
+
+            if (attachmentGroup) {
+                attachmentGroup.hidden = !template.allows_attachment;
+            }
+
+            if (attachmentInput && !template.allows_attachment) {
+                attachmentInput.value = '';
             }
 
             openModal('sendEmailModal');

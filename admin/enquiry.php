@@ -59,10 +59,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isViewer()) {
             exit;
         }
 
-        $result = sendSystemEmail($enquiry['email'], $subject, $body, getSetting($conn, 'admin_email'));
+        $attachments = [];
+        if (!empty($_FILES['email_attachment']['name'])) {
+            $upload = parseEmailAttachmentUpload($_FILES['email_attachment']);
+
+            if (!$upload['success']) {
+                flashMessage('error', $upload['message'] ?: 'Unable to attach file.');
+                header('Location: enquiry.php?id=' . $id . '&email=1');
+                exit;
+            }
+
+            $attachments[] = [
+                'path' => $upload['path'],
+                'name' => $upload['name'],
+                'mime' => $upload['mime'],
+            ];
+        }
+
+        $result = sendSystemEmail($enquiry['email'], $subject, $body, getSetting($conn, 'admin_email'), 'enquiry_reply', $attachments);
 
         if ($result['success']) {
-            addEnquiryNote($conn, $id, 'Email sent: ' . $subject, adminDisplayName());
+            $noteText = 'Email sent: ' . $subject;
+            if (!empty($attachments)) {
+                $noteText .= ' (attachment: ' . $attachments[0]['name'] . ')';
+            }
+            addEnquiryNote($conn, $id, $noteText, adminDisplayName());
             logActivity($conn, 'email_send', 'enquiry', $id, $subject);
             flashMessage('success', 'Email sent successfully.');
         } else {
@@ -80,6 +101,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isViewer()) {
         $assignedTo = ($_POST['assigned_to'] ?? '') !== '' ? (int) $_POST['assigned_to'] : null;
         $followUpDate = trim($_POST['follow_up_date'] ?? '');
         $clearFollowUp = empty($followUpDate);
+        $statusError = enquiryStatusTransitionError($enquiry['status'], $status);
+
+        if ($statusError !== null) {
+            flashMessage('error', $statusError);
+            header('Location: enquiry.php?id=' . $id);
+            exit;
+        }
 
         if (updateEnquiryExtended($conn, $id, $status, $assignedTo, $clearFollowUp ? null : $followUpDate, $assignedTo === null && ($_POST['assigned_to'] ?? '') === '', $clearFollowUp)) {
             logActivity($conn, 'enquiry_update', 'enquiry', $id, "Status: {$status}");
@@ -296,10 +324,13 @@ require __DIR__ . '/includes/header.php';
                         <div class="form-group">
                             <label for="status">Update Status</label>
                             <select id="status" name="status" required>
-                                <?php foreach (enquiryStatuses() as $value => $label): ?>
+                                <?php foreach (allowedEnquiryStatusTargets($enquiry['status']) as $value => $label): ?>
                                     <option value="<?= sanitize($value) ?>" <?= $enquiry['status'] === $value ? 'selected' : '' ?>><?= sanitize($label) ?></option>
                                 <?php endforeach; ?>
                             </select>
+                            <?php if ($enquiry['status'] === 'closed'): ?>
+                                <p class="form-hint">Closed enquiries stay closed or can be reopened as Contacted only.</p>
+                            <?php endif; ?>
                         </div>
 
                         <div class="form-group">
@@ -336,7 +367,11 @@ require __DIR__ . '/includes/header.php';
                                 ?>
                                 <button type="button"
                                         class="enquiry-template-chip enquiry-template-chip-btn"
-                                        data-template="<?= htmlspecialchars(json_encode(['subject' => $subject, 'body' => $body], JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8') ?>">
+                                        data-template="<?= htmlspecialchars(json_encode([
+                                            'subject' => $subject,
+                                            'body' => $body,
+                                            'allows_attachment' => !empty($template['allows_attachment']),
+                                        ], JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8') ?>">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                                     <?= sanitize($template['name']) ?>
                                 </button>
@@ -446,7 +481,7 @@ require __DIR__ . '/includes/header.php';
             </button>
         </div>
         <div class="admin-modal-body">
-            <form method="POST" class="admin-form" id="sendEmailForm" action="<?= adminUrl('enquiry', ['id' => $id]) ?>">
+            <form method="POST" class="admin-form" id="sendEmailForm" action="<?= adminUrl('enquiry', ['id' => $id]) ?>" enctype="multipart/form-data">
                 <?= csrfField() ?>
                 <input type="hidden" name="action" value="send_email">
                 <div class="form-group">
@@ -456,6 +491,11 @@ require __DIR__ . '/includes/header.php';
                 <div class="form-group">
                     <label for="email_body">Message</label>
                     <textarea id="email_body" name="email_body" rows="8" required placeholder="Write your message..."></textarea>
+                </div>
+                <div class="form-group" id="emailAttachmentGroup" hidden>
+                    <label for="email_attachment">Proposal Attachment</label>
+                    <input type="file" id="email_attachment" name="email_attachment" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.png,.jpg,.jpeg">
+                    <span class="form-hint">Attach your proposal (PDF, Word, Excel, PowerPoint, PNG, or JPG — max 10 MB).</span>
                 </div>
                 <div class="form-actions admin-modal-actions">
                     <button type="button" class="btn btn-secondary" data-modal-close>Cancel</button>

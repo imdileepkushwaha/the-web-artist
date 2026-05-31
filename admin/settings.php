@@ -210,13 +210,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $name = trim($_POST['name'] ?? '');
         $subject = trim($_POST['subject'] ?? '');
         $body = trim($_POST['body'] ?? '');
+        $allowsAttachment = isset($_POST['allows_attachment']);
 
         if ($name === '' || $subject === '' || $body === '') {
             flashMessage('error', 'All template fields are required.');
-        } elseif ($id && updateEmailTemplate($conn, $id, $name, $subject, $body)) {
+        } elseif ($id && updateEmailTemplate($conn, $id, $name, $subject, $body, $allowsAttachment)) {
             flashMessage('success', 'Template updated.');
             settingsRedirect('templates');
-        } elseif (!$id && createEmailTemplate($conn, $name, $subject, $body)) {
+        } elseif (!$id && createEmailTemplate($conn, $name, $subject, $body, $allowsAttachment)) {
             flashMessage('success', 'Template created.');
             settingsRedirect('templates');
         } else {

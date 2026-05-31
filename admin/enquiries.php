@@ -16,8 +16,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isViewer()) {
             flashMessage('success', "{$count} enquiry/enquiries deleted.");
         } elseif (array_key_exists($bulkAction, enquiryStatuses())) {
             $count = bulkUpdateEnquiryStatus($conn, $selectedIds, $bulkAction);
+            $skipped = count($selectedIds) - $count;
             logActivity($conn, 'bulk_status', 'enquiries', null, "Updated {$count} to {$bulkAction}");
-            flashMessage('success', "{$count} enquiry/enquiries updated.");
+            if ($count === 0) {
+                flashMessage('error', 'No enquiries were updated. Closed enquiries cannot be moved to New or Read.');
+            } elseif ($skipped > 0) {
+                flashMessage('success', "{$count} enquiry/enquiries updated. {$skipped} skipped due to closed-enquiry rules.");
+            } else {
+                flashMessage('success', "{$count} enquiry/enquiries updated.");
+            }
         } else {
             flashMessage('error', 'Invalid bulk action selected.');
         }

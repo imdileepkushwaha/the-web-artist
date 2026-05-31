@@ -18,6 +18,7 @@ function ensureAllAdminTables(PDO $conn): void
     ensureWhatsAppTemplatesTable($conn);
     migrateAdminUsersForcePassword($conn);
     migrateTrustedClientLogoKeys($conn);
+    migrateEmailTemplatesAttachmentColumn($conn);
 
     seedDefaultAdminUser($conn);
     seedDefaultSettings($conn);
@@ -110,8 +111,20 @@ function ensureEmailTemplatesTable(PDO $conn): void
         name VARCHAR(100) NOT NULL,
         subject VARCHAR(255) NOT NULL,
         body TEXT NOT NULL,
+        allows_attachment TINYINT(1) NOT NULL DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+
+function migrateEmailTemplatesAttachmentColumn(PDO $conn): void
+{
+    $columns = $conn->query('SHOW COLUMNS FROM email_templates')->fetchAll(PDO::FETCH_COLUMN);
+
+    if (!in_array('allows_attachment', $columns, true)) {
+        $conn->exec('ALTER TABLE email_templates ADD COLUMN allows_attachment TINYINT(1) NOT NULL DEFAULT 0 AFTER body');
+    }
+
+    $conn->exec("UPDATE email_templates SET allows_attachment = 1 WHERE name = 'Proposal Sent'");
 }
 
 function ensureFaqItemsTable(PDO $conn): void
@@ -322,6 +335,7 @@ function seedDefaultEmailTemplates(PDO $conn): void
             'name' => 'Proposal Sent',
             'subject' => 'Your project proposal from The Web Artist',
             'body' => "Hi {{name}},\n\nThank you for your interest in our {{service}} solution.\n\nWe have prepared a proposal based on your requirements. Please review the attached details and let us know if you would like to discuss any changes.\n\nWe look forward to partnering with you.\n\nBest regards,\nThe Web Artist Team",
+            'allows_attachment' => 1,
         ],
         [
             'name' => 'Demo Scheduled',
@@ -330,10 +344,15 @@ function seedDefaultEmailTemplates(PDO $conn): void
         ],
     ];
 
-    $stmt = $conn->prepare('INSERT INTO email_templates (name, subject, body) VALUES (:name, :subject, :body)');
+    $stmt = $conn->prepare('INSERT INTO email_templates (name, subject, body, allows_attachment) VALUES (:name, :subject, :body, :allows_attachment)');
 
     foreach ($templates as $template) {
-        $stmt->execute($template);
+        $stmt->execute([
+            ':name' => $template['name'],
+            ':subject' => $template['subject'],
+            ':body' => $template['body'],
+            ':allows_attachment' => (int) ($template['allows_attachment'] ?? 0),
+        ]);
     }
 }
 

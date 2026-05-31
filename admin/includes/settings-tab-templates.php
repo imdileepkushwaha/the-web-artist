@@ -24,6 +24,9 @@
                                     <strong><?= sanitize($item['name']) ?></strong>
                                     <div class="cms-list-meta">
                                         <span><?= sanitize($item['subject']) ?></span>
+                                        <?php if (!empty($item['allows_attachment'])): ?>
+                                            <span class="badge badge-read">Attachment</span>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
                             </div>
@@ -68,6 +71,13 @@
                 <div class="form-group">
                     <label for="template_body">Email Body</label>
                     <textarea id="template_body" name="body" rows="8" required placeholder="Hi {name}, ..."><?= sanitize($editTemplate['body'] ?? '') ?></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="allows_attachment" value="1" <?= !empty($editTemplate['allows_attachment']) ? 'checked' : '' ?>>
+                        Allow file attachment when sending (e.g. proposal PDF)
+                    </label>
+                    <span class="form-hint">When enabled, enquiry page shows an attachment field after this template is selected.</span>
                 </div>
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary"><?= $editTemplate ? 'Update Template' : 'Create Template' ?></button>

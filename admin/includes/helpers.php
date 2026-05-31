@@ -361,11 +361,24 @@ function bulkUpdateEnquiryStatus(PDO $conn, array $ids, string $status): int
         return 0;
     }
 
-    $placeholders = implode(',', array_fill(0, count($ids), '?'));
-    $stmt = $conn->prepare("UPDATE enquiries SET status = ? WHERE id IN ({$placeholders})");
-    $stmt->execute(array_merge([$status], $ids));
+    $currentStmt = $conn->prepare('SELECT id, status FROM enquiries WHERE id = ?');
+    $updateStmt = $conn->prepare('UPDATE enquiries SET status = ? WHERE id = ?');
+    $updated = 0;
 
-    return $stmt->rowCount();
+    foreach ($ids as $id) {
+        $currentStmt->execute([$id]);
+        $row = $currentStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$row || enquiryStatusTransitionError($row['status'], $status) !== null) {
+            continue;
+        }
+
+        if ($updateStmt->execute([$status, $id])) {
+            $updated += $updateStmt->rowCount();
+        }
+    }
+
+    return $updated;
 }
 
 function bulkDeleteEnquiries(PDO $conn, array $ids): int
@@ -396,6 +409,15 @@ function updateEnquiryExtended(PDO $conn, int $id, ?string $status = null, ?int 
         if (!array_key_exists($status, enquiryStatuses())) {
             return false;
         }
+
+        $currentStmt = $conn->prepare('SELECT status FROM enquiries WHERE id = :id');
+        $currentStmt->execute([':id' => $id]);
+        $currentStatus = $currentStmt->fetchColumn();
+
+        if ($currentStatus === false || enquiryStatusTransitionError($currentStatus, $status) !== null) {
+            return false;
+        }
+
         $fields[] = 'status = :status';
         $params[':status'] = $status;
     }
@@ -733,25 +755,27 @@ function getEmailTemplateById(PDO $conn, int $id): ?array
     return $item ?: null;
 }
 
-function createEmailTemplate(PDO $conn, string $name, string $subject, string $body): bool
+function createEmailTemplate(PDO $conn, string $name, string $subject, string $body, bool $allowsAttachment = false): bool
 {
-    $stmt = $conn->prepare('INSERT INTO email_templates (name, subject, body) VALUES (:name, :subject, :body)');
+    $stmt = $conn->prepare('INSERT INTO email_templates (name, subject, body, allows_attachment) VALUES (:name, :subject, :body, :allows_attachment)');
 
     return $stmt->execute([
         ':name' => $name,
         ':subject' => $subject,
         ':body' => $body,
+        ':allows_attachment' => $allowsAttachment ? 1 : 0,
     ]);
 }
 
-function updateEmailTemplate(PDO $conn, int $id, string $name, string $subject, string $body): bool
+function updateEmailTemplate(PDO $conn, int $id, string $name, string $subject, string $body, bool $allowsAttachment = false): bool
 {
-    $stmt = $conn->prepare('UPDATE email_templates SET name = :name, subject = :subject, body = :body WHERE id = :id');
+    $stmt = $conn->prepare('UPDATE email_templates SET name = :name, subject = :subject, body = :body, allows_attachment = :allows_attachment WHERE id = :id');
 
     return $stmt->execute([
         ':name' => $name,
         ':subject' => $subject,
         ':body' => $body,
+        ':allows_attachment' => $allowsAttachment ? 1 : 0,
         ':id' => $id,
     ]);
 }
@@ -945,6 +969,62 @@ function applyEmailTemplate(string $body, array $enquiry): string
     ];
 
     return str_replace(array_keys($replacements), array_values($replacements), $body);
+}
+
+function parseEmailAttachmentUpload(?array $file): array
+{
+    if ($file === null || empty($file['name']) || (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+        return ['success' => false, 'path' => null, 'name' => null, 'mime' => null, 'message' => ''];
+    }
+
+    $error = (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE);
+
+    if ($error !== UPLOAD_ERR_OK) {
+        return ['success' => false, 'path' => null, 'name' => null, 'mime' => null, 'message' => 'Attachment upload failed. Please try again.'];
+    }
+
+    if (($file['size'] ?? 0) > 10 * 1024 * 1024) {
+        return ['success' => false, 'path' => null, 'name' => null, 'mime' => null, 'message' => 'Attachment must be 10 MB or smaller.'];
+    }
+
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $mime = $finfo ? finfo_file($finfo, $file['tmp_name']) : '';
+    if ($finfo) {
+        finfo_close($finfo);
+    }
+
+    $allowed = [
+        'application/pdf' => 'pdf',
+        'application/msword' => 'doc',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
+        'application/vnd.ms-powerpoint' => 'ppt',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation' => 'pptx',
+        'application/vnd.ms-excel' => 'xls',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'xlsx',
+        'image/png' => 'png',
+        'image/jpeg' => 'jpg',
+    ];
+
+    if (!isset($allowed[$mime])) {
+        return [
+            'success' => false,
+            'path' => null,
+            'name' => null,
+            'mime' => null,
+            'message' => 'Attachment must be PDF, Word, Excel, PowerPoint, PNG, or JPG.',
+        ];
+    }
+
+    $originalName = basename((string) ($file['name'] ?? 'attachment'));
+    $originalName = preg_replace('/[^\w.\- ()]+/u', '_', $originalName) ?: 'attachment.' . $allowed[$mime];
+
+    return [
+        'success' => true,
+        'path' => $file['tmp_name'],
+        'name' => $originalName,
+        'mime' => $mime,
+        'message' => '',
+    ];
 }
 
 function getVisitStatsDetailed(PDO $conn, int $days = 30): array

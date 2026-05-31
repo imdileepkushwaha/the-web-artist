@@ -1,6 +1,6 @@
 <?php
 
-function sendSystemEmail(string $to, string $subject, string $body, ?string $replyTo = null, string $context = 'system'): array
+function sendSystemEmail(string $to, string $subject, string $body, ?string $replyTo = null, string $context = 'system', array $attachments = []): array
 {
     $to = trim($to);
 
@@ -21,9 +21,9 @@ function sendSystemEmail(string $to, string $subject, string $body, ?string $rep
     }
 
     if (getSetting($conn, 'smtp_enabled', '0') === '1') {
-        $result = sendSmtpEmail($to, $subject, $body, $fromEmail, $fromName, $replyTo, $conn);
+        $result = sendSmtpEmail($to, $subject, $body, $fromEmail, $fromName, $replyTo, $conn, $attachments);
     } else {
-        $result = sendPhpMailEmail($to, $subject, $body, $fromEmail, $fromName, $replyTo);
+        $result = sendPhpMailEmail($to, $subject, $body, $fromEmail, $fromName, $replyTo, $attachments);
     }
 
     if (function_exists('logEmailDelivery')) {
@@ -37,18 +37,23 @@ function sendSystemEmail(string $to, string $subject, string $body, ?string $rep
     return $result;
 }
 
-function sendPhpMailEmail(string $to, string $subject, string $body, string $fromEmail, string $fromName, ?string $replyTo): array
+function sendPhpMailEmail(string $to, string $subject, string $body, string $fromEmail, string $fromName, ?string $replyTo, array $attachments = []): array
 {
     $encodedFromName = '=?UTF-8?B?' . base64_encode($fromName) . '?=';
+    $mime = buildMimeEmailParts($body, $attachments);
     $headers = "From: {$encodedFromName} <{$fromEmail}>\r\n";
     $headers .= "MIME-Version: 1.0\r\n";
-    $headers .= "Content-Type: text/plain; charset=UTF-8\r\n";
+    $headers .= $mime['content_type'] . "\r\n";
+
+    if ($mime['transfer_encoding'] !== null) {
+        $headers .= $mime['transfer_encoding'] . "\r\n";
+    }
 
     if ($replyTo && filter_var($replyTo, FILTER_VALIDATE_EMAIL)) {
         $headers .= "Reply-To: {$replyTo}\r\n";
     }
 
-    $sent = @mail($to, '=?UTF-8?B?' . base64_encode($subject) . '?=', $body, $headers);
+    $sent = @mail($to, '=?UTF-8?B?' . base64_encode($subject) . '?=', $mime['body'], $headers);
 
     if (!$sent) {
         return [
@@ -89,7 +94,7 @@ function smtpSslOptions(PDO $conn): array
     ];
 }
 
-function sendSmtpEmail(string $to, string $subject, string $body, string $fromEmail, string $fromName, ?string $replyTo, PDO $conn): array
+function sendSmtpEmail(string $to, string $subject, string $body, string $fromEmail, string $fromName, ?string $replyTo, PDO $conn, array $attachments = []): array
 {
     $host = normalizeSmtpHost((string) getSetting($conn, 'smtp_host', ''));
     $port = (int) getSetting($conn, 'smtp_port', '587');
@@ -186,7 +191,7 @@ function sendSmtpEmail(string $to, string $subject, string $body, string $fromEm
         smtpCommand($socket, 'RCPT TO:<' . $to . '>', [250, 251]);
         smtpCommand($socket, 'DATA', [354]);
 
-        $message = buildSmtpMessage($fromEmail, $fromName, $to, $subject, $body, $replyTo);
+        $message = buildSmtpMessage($fromEmail, $fromName, $to, $subject, $body, $replyTo, $attachments);
         fwrite($socket, $message . "\r\n.\r\n");
         smtpExpect($socket, [250]);
         smtpCommand($socket, 'QUIT', [221]);
@@ -201,12 +206,13 @@ function sendSmtpEmail(string $to, string $subject, string $body, string $fromEm
     return ['success' => true, 'message' => 'Email sent successfully via SMTP (' . $host . ':' . $port . ', ' . strtoupper($encryption) . ').'];
 }
 
-function buildSmtpMessage(string $fromEmail, string $fromName, string $to, string $subject, string $body, ?string $replyTo): string
+function buildSmtpMessage(string $fromEmail, string $fromName, string $to, string $subject, string $body, ?string $replyTo, array $attachments = []): string
 {
     $encodedSubject = '=?UTF-8?B?' . base64_encode($subject) . '?=';
     $encodedFromName = '=?UTF-8?B?' . base64_encode($fromName) . '?=';
     $date = gmdate('D, d M Y H:i:s') . ' +0000';
     $messageId = '<' . bin2hex(random_bytes(8)) . '@' . preg_replace('/[^a-z0-9.-]/i', '', smtpClientHelo(getDbConnection())) . '>';
+    $mime = buildMimeEmailParts($body, $attachments);
 
     $lines = [
         'Date: ' . $date,
@@ -215,18 +221,77 @@ function buildSmtpMessage(string $fromEmail, string $fromName, string $to, strin
         'To: <' . $to . '>',
         'Subject: ' . $encodedSubject,
         'MIME-Version: 1.0',
-        'Content-Type: text/plain; charset=UTF-8',
-        'Content-Transfer-Encoding: 8bit',
+        $mime['content_type'],
     ];
+
+    if ($mime['transfer_encoding'] !== null) {
+        $lines[] = $mime['transfer_encoding'];
+    }
 
     if ($replyTo && filter_var($replyTo, FILTER_VALIDATE_EMAIL)) {
         $lines[] = 'Reply-To: ' . $replyTo;
     }
 
     $lines[] = '';
-    $lines[] = str_replace(["\r\n", "\r"], "\n", $body);
+    $lines[] = $mime['body'];
 
     return implode("\r\n", $lines);
+}
+
+function encodeMimeFilename(string $filename): string
+{
+    if (preg_match('/^[\x20-\x7E]+$/', $filename)) {
+        return $filename;
+    }
+
+    return '=?UTF-8?B?' . base64_encode($filename) . '?=';
+}
+
+function buildMimeEmailParts(string $body, array $attachments = []): array
+{
+    $body = str_replace(["\r\n", "\r"], "\n", $body);
+
+    if (empty($attachments)) {
+        return [
+            'content_type' => 'Content-Type: text/plain; charset=UTF-8',
+            'transfer_encoding' => 'Content-Transfer-Encoding: 8bit',
+            'body' => $body,
+        ];
+    }
+
+    $boundary = '----=_TWA_' . bin2hex(random_bytes(12));
+    $parts = [
+        '--' . $boundary,
+        'Content-Type: text/plain; charset=UTF-8',
+        'Content-Transfer-Encoding: 8bit',
+        '',
+        $body,
+    ];
+
+    foreach ($attachments as $attachment) {
+        $filename = encodeMimeFilename((string) ($attachment['name'] ?? 'attachment'));
+        $mimeType = (string) ($attachment['mime'] ?? 'application/octet-stream');
+        $path = (string) ($attachment['path'] ?? '');
+
+        if ($path === '' || !is_readable($path)) {
+            continue;
+        }
+
+        $parts[] = '--' . $boundary;
+        $parts[] = 'Content-Type: ' . $mimeType . '; name="' . $filename . '"';
+        $parts[] = 'Content-Transfer-Encoding: base64';
+        $parts[] = 'Content-Disposition: attachment; filename="' . $filename . '"';
+        $parts[] = '';
+        $parts[] = chunk_split(base64_encode((string) file_get_contents($path)), 76, "\r\n");
+    }
+
+    $parts[] = '--' . $boundary . '--';
+
+    return [
+        'content_type' => 'Content-Type: multipart/mixed; boundary="' . $boundary . '"',
+        'transfer_encoding' => null,
+        'body' => implode("\r\n", $parts),
+    ];
 }
 
 function smtpCommand($socket, string $command, array $expectedCodes): void

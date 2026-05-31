@@ -162,6 +162,30 @@ function enquiryStatuses(): array
     ];
 }
 
+function allowedEnquiryStatusTargets(string $currentStatus): array
+{
+    $all = enquiryStatuses();
+
+    if ($currentStatus === 'closed') {
+        return array_intersect_key($all, array_flip(['closed', 'contacted']));
+    }
+
+    return $all;
+}
+
+function enquiryStatusTransitionError(string $from, string $to): ?string
+{
+    if (!array_key_exists($to, enquiryStatuses())) {
+        return 'Invalid status selected.';
+    }
+
+    if (!array_key_exists($to, allowedEnquiryStatusTargets($from))) {
+        return 'Closed enquiries cannot be moved back to New or Read. Reopen as Contacted if you need to follow up again.';
+    }
+
+    return null;
+}
+
 function formatEnquiryDate(?string $date): string
 {
     if (!$date) {
