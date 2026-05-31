@@ -28,7 +28,7 @@ $editWaTemplate = $editWaId ? getWhatsAppTemplateById($conn, $editWaId) : null;
                         <?php foreach ($whatsappTemplates as $item): ?>
                             <tr>
                                 <td><?= sanitize($item['name']) ?></td>
-                                <td><?= sanitize(mb_substr($item['body'], 0, 80)) ?>…</td>
+                                <td><?= sanitize(twaStrimwidth($item['body'], 0, 80, '…')) ?></td>
                                 <td class="table-actions">
                                     <a href="settings.php?tab=whatsapp&amp;edit_whatsapp=<?= (int) $item['id'] ?>" class="btn btn-secondary btn-sm">Edit</a>
                                     <form method="POST" style="display:inline;" data-confirm-delete="Delete this template?">

@@ -2,9 +2,7 @@
 
 require_once __DIR__ . '/../config.php';
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+twaEnsureSession();
 
 function isAdminLoggedIn(): bool
 {
@@ -24,7 +22,7 @@ function checkSessionTimeout(): void
 
     if (time() - $lastActivity > $timeoutSeconds) {
         logoutAdmin();
-        header('Location: ' . adminUrl('login', ['timeout' => 1]));
+        header('Location: login.php?timeout=1');
         exit;
     }
 
@@ -34,7 +32,7 @@ function checkSessionTimeout(): void
 function requireAdminLogin(): void
 {
     if (!isAdminLoggedIn()) {
-        header('Location: ' . adminUrl('login'));
+        header('Location: login.php');
         exit;
     }
 
@@ -48,7 +46,7 @@ function requireAdminLogin(): void
 function redirectIfLoggedIn(): void
 {
     if (isAdminLoggedIn()) {
-        header('Location: ' . adminUrl());
+        header('Location: index.php');
         exit;
     }
 }
@@ -71,6 +69,7 @@ function loginAdmin(string $username, string $password): bool
     $user = $stmt->fetch();
 
     if ($user && password_verify($password, $user['password_hash'])) {
+        twaRateLimitReset($rateKey);
         $_SESSION[ADMIN_SESSION_KEY] = true;
         $_SESSION[ADMIN_SESSION_USER] = $user['username'];
         $_SESSION[ADMIN_SESSION_USER_ID] = (int) $user['id'];
@@ -86,6 +85,7 @@ function loginAdmin(string $username, string $password): bool
     }
 
     if ($username === ADMIN_USERNAME && $password === ADMIN_PASSWORD && defined('TWA_ALLOW_CONFIG_LOGIN') && TWA_ALLOW_CONFIG_LOGIN) {
+        twaRateLimitReset($rateKey);
         $fallbackUser = getAdminUserAccount($conn, $username);
 
         $_SESSION[ADMIN_SESSION_KEY] = true;

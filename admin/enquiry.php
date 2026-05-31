@@ -268,7 +268,7 @@ require __DIR__ . '/includes/header.php';
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                                     Client submission
                                 </span>
-                                <span class="enquiry-message-chars"><?= number_format(mb_strlen($messageText)) ?> characters</span>
+                                <span class="enquiry-message-chars"><?= number_format(twaStrlen($messageText)) ?> characters</span>
                             </div>
                             <?php endif; ?>
                         </div>
@@ -446,7 +446,7 @@ require __DIR__ . '/includes/header.php';
             </button>
         </div>
         <div class="admin-modal-body">
-            <form method="POST" class="admin-form" id="sendEmailForm">
+            <form method="POST" class="admin-form" id="sendEmailForm" action="<?= adminUrl('enquiry', ['id' => $id]) ?>">
                 <?= csrfField() ?>
                 <input type="hidden" name="action" value="send_email">
                 <div class="form-group">

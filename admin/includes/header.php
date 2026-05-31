@@ -13,13 +13,15 @@ if (function_exists('isAdminLoggedIn') && isAdminLoggedIn() && function_exists('
     $darkModeDefault = getSetting($topbarConn, 'dark_mode', '0') ?: '0';
 }
 
-function navActive(string $page, string $activePage = ''): string
-{
-    if ($activePage !== '' && $activePage === $page) {
-        return 'active';
-    }
+if (!function_exists('navActive')) {
+    function navActive(string $page, string $activePage = ''): string
+    {
+        if ($activePage !== '' && $activePage === $page) {
+            return 'active';
+        }
 
-    return activeNav($page);
+        return activeNav($page);
+    }
 }
 ?>
 <!DOCTYPE html>

@@ -66,7 +66,7 @@ require __DIR__ . '/includes/header.php';
                                 <strong><?= sanitize($item['title']) ?></strong>
                                 <div class="cms-list-meta">
                                     <span class="sort-order-badge">#<?= (int) $item['sort_order'] ?></span>
-                                    <span><?= sanitize(mb_strimwidth($item['description'], 0, 60, '…')) ?></span>
+                                    <span><?= sanitize(twaStrimwidth($item['description'], 0, 60, '…')) ?></span>
                                     <span class="cms-status <?= $item['is_active'] ? 'active' : 'hidden' ?>">
                                         <span class="cms-status-dot"></span>
                                         <?= $item['is_active'] ? 'Active' : 'Hidden' ?>

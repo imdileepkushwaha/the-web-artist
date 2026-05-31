@@ -16,14 +16,13 @@ function adminBasePath(): string
 
 function adminUrl(string $page = '', array $query = []): string
 {
-    $base = adminBasePath();
     $page = ltrim($page, '/');
     $page = preg_replace('/\.php$/', '', $page);
 
     if ($page === '' || $page === 'index') {
-        $url = $base . '/';
+        $url = 'index.php';
     } else {
-        $url = $base . '/' . $page;
+        $url = $page . '.php';
     }
 
     if ($query !== []) {

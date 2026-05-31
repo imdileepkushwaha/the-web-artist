@@ -24,7 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
-        if (mb_strlen($password, 'UTF-8') < 6) {
+        if (twaStrlen($password) < 6) {
             flashMessage('error', 'Password must be at least 6 characters.');
             header('Location: users.php?add=1');
             exit;
@@ -64,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'reset_password' && ($userId = (int) ($_POST['user_id'] ?? 0))) {
         $password = (string) ($_POST['password'] ?? '');
 
-        if (mb_strlen($password, 'UTF-8') < 6) {
+        if (twaStrlen($password) < 6) {
             flashMessage('error', 'Password must be at least 6 characters.');
             header('Location: users.php?reset=' . $userId);
             exit;

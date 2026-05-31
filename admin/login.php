@@ -6,16 +6,28 @@ redirectIfLoggedIn();
 $error = isset($_GET['timeout']) ? 'Your session expired. Please sign in again.' : '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    verifyCsrfToken();
-    $username = trim($_POST['username'] ?? '');
-    $password = trim($_POST['password'] ?? '');
+    try {
+        csrfValidateForPublicForm();
+        $username = trim($_POST['username'] ?? '');
+        $password = trim($_POST['password'] ?? '');
 
-    if (loginAdmin($username, $password)) {
-        header('Location: ' . adminUrl());
-        exit;
+        if (loginAdmin($username, $password)) {
+            header('Location: index.php');
+            exit;
+        }
+
+        $rateKey = 'login:' . twaClientIp() . ':' . strtolower($username);
+        $wait = twaRateLimitRemainingSeconds($rateKey, 900);
+
+        if ($wait > 0 && $wait < 900) {
+            $mins = max(1, (int) ceil($wait / 60));
+            $error = 'Too many failed attempts. Please wait about ' . $mins . ' minute(s) and try again.';
+        } else {
+            $error = 'Invalid username or password.';
+        }
+    } catch (RuntimeException $e) {
+        $error = $e->getMessage();
     }
-
-    $error = 'Invalid username or password. Too many attempts may temporarily lock login.';
 }
 ?>
 <!DOCTYPE html>
@@ -40,11 +52,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="login-error"><?= sanitize($error) ?></div>
         <?php endif; ?>
 
-        <form method="POST" action="<?= adminUrl('login') ?>">
+        <form method="POST" action="login.php">
             <?= csrfField() ?>
             <div class="form-group">
                 <label for="username">Username</label>
-                <input type="text" id="username" name="username" required autofocus placeholder="Enter username">
+                <input type="text" id="username" name="username" required autofocus placeholder="Enter username" value="<?= sanitize($_POST['username'] ?? '') ?>">
             </div>
             <div class="form-group">
                 <label for="password">Password</label>

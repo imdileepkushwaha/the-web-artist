@@ -1,19 +1,12 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
-    # Dashboard: drop index.php from the URL
-    RewriteRule ^index\.php$ ./ [R=301,L,NC]
-
-    # Redirect visible .php URLs to clean paths (GET/HEAD only)
-    RewriteCond %{REQUEST_METHOD} !POST
-    RewriteRule ^(.+)\.php$ $1 [R=301,L,QSA]
-
-    # Serve existing files and directories as-is
+    # Serve existing files and directories as-is (.php URLs stay as-is)
     RewriteCond %{REQUEST_FILENAME} -f [OR]
     RewriteCond %{REQUEST_FILENAME} -d
     RewriteRule ^ - [L]
 
-    # Map clean URLs to PHP scripts (includes api/search, api/notifications)
+    # Optional clean URLs → PHP (query string preserved)
     RewriteCond %{REQUEST_FILENAME}.php -f
     RewriteRule ^(.+?)/?$ $1.php [L,QSA]
 </IfModule>

@@ -97,7 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $newPass = (string) ($_POST['new_password'] ?? '');
         $confirm = (string) ($_POST['confirm_password'] ?? '');
         $account = resolveCurrentAdminUser($conn);
-        $newPassLength = mb_strlen($newPass, 'UTF-8');
+        $newPassLength = twaStrlen($newPass);
 
         if ($current === '') {
             flashMessage('error', 'Please enter your current password.');

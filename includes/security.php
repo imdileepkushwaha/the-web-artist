@@ -1,22 +1,31 @@
 <?php
 
+function twaSessionCookiePath(): string
+{
+    $script = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '/index.php');
+
+    if (preg_match('#/admin(/|$)#', $script)) {
+        $siteRoot = dirname(dirname($script));
+    } else {
+        $siteRoot = dirname($script);
+    }
+
+    if ($siteRoot === '/' || $siteRoot === '.' || $siteRoot === '') {
+        return '/';
+    }
+
+    return rtrim($siteRoot, '/') . '/';
+}
+
 function twaEnsureSession(): void
 {
     if (session_status() === PHP_SESSION_NONE) {
-        if (!function_exists('siteBasePath')) {
-            require_once __DIR__ . '/url.php';
-        }
-
-        $path = siteBasePath();
-
-        if ($path !== '') {
-            session_set_cookie_params([
-                'lifetime' => 0,
-                'path' => $path . '/',
-                'httponly' => true,
-                'samesite' => 'Lax',
-            ]);
-        }
+        session_set_cookie_params([
+            'lifetime' => 0,
+            'path' => twaSessionCookiePath(),
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
 
         session_start();
     }
@@ -163,6 +172,12 @@ function twaRateLimitRemainingSeconds(string $key, int $windowSeconds = 900): in
     $bucket = $_SESSION[$bucketKey] ?? ['count' => 0, 'start' => time()];
 
     return max(0, $windowSeconds - (time() - (int) $bucket['start']));
+}
+
+function twaRateLimitReset(string $key): void
+{
+    twaEnsureSession();
+    unset($_SESSION['_rate_' . hash('sha256', $key)]);
 }
 
 function twaClientIp(): string

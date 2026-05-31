@@ -257,9 +257,25 @@ function requireAdminRole(): void
     if (!isAdminRole()) {
         http_response_code(403);
         flashMessage('error', 'You do not have permission to perform this action.');
-        header('Location: ' . adminUrl());
+        header('Location: index.php');
         exit;
     }
+}
+
+function twaStrlen(string $value): int
+{
+    return function_exists('mb_strlen') ? (int) mb_strlen($value, 'UTF-8') : strlen($value);
+}
+
+function twaStrimwidth(string $value, int $start, int $width, string $trimMarker = ''): string
+{
+    if (function_exists('mb_strimwidth')) {
+        return mb_strimwidth($value, $start, $width, $trimMarker, 'UTF-8');
+    }
+
+    $chunk = substr($value, $start, $width);
+
+    return strlen($value) > $width ? $chunk . $trimMarker : $chunk;
 }
 
 function sendEnquiryNotificationEmail(array $enquiry): bool
@@ -1158,18 +1174,22 @@ function buildWhatsAppUrl(string $phone, string $message): string
 
 function getWhatsAppQuickTemplates(): array
 {
-    $conn = getDbConnection();
-    $rows = $conn->query('SELECT name, body FROM whatsapp_templates ORDER BY id ASC')->fetchAll();
-    $templates = [];
+    try {
+        $conn = getDbConnection();
+        $rows = $conn->query('SELECT name, body FROM whatsapp_templates ORDER BY id ASC')->fetchAll();
+        $templates = [];
 
-    foreach ($rows as $row) {
-        $templates[] = [
-            'name' => $row['name'],
-            'message' => $row['body'],
-        ];
+        foreach ($rows as $row) {
+            $templates[] = [
+                'name' => $row['name'],
+                'message' => $row['body'],
+            ];
+        }
+
+        return $templates;
+    } catch (Throwable $e) {
+        return [];
     }
-
-    return $templates;
 }
 
 function applyMessageTemplate(string $body, array $enquiry, ?string $adminName = null): string
@@ -1302,18 +1322,20 @@ function requirePasswordChangeIfNeeded(PDO $conn): void
     }
 
     $script = basename($_SERVER['PHP_SELF'] ?? '');
+    $requestPath = basename(parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '');
     $tab = $_GET['tab'] ?? '';
+    $onPasswordSettings = ($script === 'settings.php' || $requestPath === 'settings') && $tab === 'password';
 
-    if ($script === 'settings.php' && $tab === 'password') {
+    if ($onPasswordSettings) {
         return;
     }
 
-    if ($script === 'logout.php') {
+    if ($script === 'logout.php' || $requestPath === 'logout') {
         return;
     }
 
     flashMessage('warning', 'Please change your default password before continuing.');
-    header('Location: ' . adminUrl('settings', ['tab' => 'password', 'required' => 1]));
+    header('Location: settings.php?tab=password&required=1');
     exit;
 }
 
