@@ -9,6 +9,7 @@
     ?>
     <div class="panel-body">
         <form method="POST" class="admin-form" id="email-settings-form">
+            <?= csrfField() ?>
             <input type="hidden" name="action" value="email">
             <p class="settings-section-intro">Configure SMTP for reliable email delivery on live servers (Gmail, hosting mail, SendGrid, etc.). When disabled, PHP <code>mail()</code> is used.</p>
 
@@ -58,6 +59,13 @@
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary">Save SMTP Settings</button>
             </div>
+        </form>
+
+        <form method="POST" class="admin-form" style="margin-top:20px;">
+            <?= csrfField() ?>
+            <input type="hidden" name="action" value="test_email">
+            <div class="settings-section-divider"><h3>Send Test Email</h3><p>Uses current SMTP / mail settings to send a test to your notification email.</p></div>
+            <button type="submit" class="btn btn-secondary">Send Test Email</button>
         </form>
     </div>
 </div>

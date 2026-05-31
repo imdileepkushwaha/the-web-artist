@@ -5,7 +5,7 @@ requireAdminRole();
 $conn = getAdminDb();
 $settings = getAllSettings($conn);
 
-$allowedTabs = ['site', 'homepage', 'seo', 'password', 'email', 'templates'];
+$allowedTabs = ['site', 'homepage', 'sections', 'seo', 'password', 'email', 'templates', 'whatsapp', 'email-log'];
 $activeTab = $_GET['tab'] ?? 'site';
 if (!in_array($activeTab, $allowedTabs, true)) {
     $activeTab = 'site';
@@ -19,7 +19,78 @@ function settingsRedirect(string $tab, array $extra = []): void
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    verifyCsrfToken();
     $action = $_POST['action'] ?? 'site';
+
+    if ($action === 'test_email') {
+        $testTo = trim((string) getSetting($conn, 'notify_email', ''));
+        if ($testTo === '') {
+            $testTo = trim((string) getSetting($conn, 'admin_email', ''));
+        }
+        if ($testTo === '') {
+            flashMessage('error', 'Set a notify or sender email first.');
+        } else {
+            $result = sendSystemEmail($testTo, 'Test Email — The Web Artist Admin', "This is a test email sent at " . date('Y-m-d H:i:s') . ".\n\nIf you received this, your email configuration is working.", null, 'test_email');
+            flashMessage($result['success'] ? 'success' : 'error', $result['message']);
+        }
+        settingsRedirect('email');
+    }
+
+    if ($action === 'whatsapp_save') {
+        $id = (int) ($_POST['id'] ?? 0);
+        $name = trim($_POST['name'] ?? '');
+        $body = trim($_POST['body'] ?? '');
+        if ($name === '' || $body === '') {
+            flashMessage('error', 'Name and message are required.');
+        } elseif ($id && updateWhatsAppTemplate($conn, $id, $name, $body)) {
+            flashMessage('success', 'WhatsApp template updated.');
+            settingsRedirect('whatsapp');
+        } elseif (!$id && createWhatsAppTemplate($conn, $name, $body)) {
+            flashMessage('success', 'WhatsApp template created.');
+            settingsRedirect('whatsapp');
+        } else {
+            flashMessage('error', 'Unable to save template.');
+            settingsRedirect('whatsapp', $id ? ['edit_whatsapp' => $id] : []);
+        }
+    }
+
+    if ($action === 'whatsapp_delete') {
+        $id = (int) ($_POST['id'] ?? 0);
+        if ($id && deleteWhatsAppTemplate($conn, $id)) {
+            flashMessage('success', 'Template deleted.');
+        } else {
+            flashMessage('error', 'Unable to delete template.');
+        }
+        settingsRedirect('whatsapp');
+    }
+
+    if ($action === 'sections') {
+        $sectionKeys = [
+            'nav_show_portfolio', 'nav_show_faq',
+            'services_badge', 'services_title', 'services_subtitle',
+            'testimonials_badge', 'testimonials_title', 'testimonials_subtitle',
+            'faq_badge', 'faq_title', 'faq_subtitle', 'faq_intro',
+            'about_title_prefix', 'about_feature1_title', 'about_feature1_desc',
+            'about_feature2_title', 'about_feature2_desc', 'about_feature3_title', 'about_feature3_desc',
+            'about_card_title', 'about_card_text',
+            'cta_badge', 'cta_title_line1', 'cta_title_accent', 'cta_subtitle',
+            'cta_perk1', 'cta_perk2', 'cta_perk3', 'cta_btn_primary', 'cta_btn_secondary',
+            'cta_trust1', 'cta_trust2', 'cta_trust3',
+            'contact_section_badge', 'contact_section_title', 'contact_section_subtitle',
+            'contact_form_badge', 'contact_form_title', 'contact_form_subtitle',
+            'footer_text', 'social_linkedin', 'social_twitter', 'social_facebook', 'social_instagram',
+        ];
+        foreach ($sectionKeys as $key) {
+            if (in_array($key, ['nav_show_portfolio', 'nav_show_faq'], true)) {
+                setSetting($conn, $key, isset($_POST[$key]) ? '1' : '0');
+            } else {
+                setSetting($conn, $key, trim($_POST[$key] ?? ''));
+            }
+        }
+        logActivity($conn, 'settings_update', 'settings', null, 'Website sections updated');
+        flashMessage('success', 'Website sections saved.');
+        settingsRedirect('sections');
+    }
 
     if ($action === 'password') {
         $current = (string) ($_POST['current_password'] ?? '');
@@ -94,7 +165,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $smtpPassword = trim($_POST['smtp_password'] ?? '');
         if ($smtpPassword !== '') {
-            setSetting($conn, 'smtp_password', $smtpPassword);
+            setEncryptedSetting($conn, 'smtp_password', $smtpPassword);
         }
 
         logActivity($conn, 'settings_update', 'settings', null, 'SMTP settings updated');
@@ -154,6 +225,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     setSetting($conn, 'notify_enquiries_enabled', isset($_POST['notify_enquiries_enabled']) ? '1' : '0');
     setSetting($conn, 'site_email', $siteEmail);
     setSetting($conn, 'site_phone', $sitePhone);
+    setSetting($conn, 'site_name', trim($_POST['site_name'] ?? ''));
+    setSetting($conn, 'site_tagline', trim($_POST['site_tagline'] ?? ''));
+    setSetting($conn, 'dark_mode', isset($_POST['dark_mode_default']) ? '1' : '0');
     setSetting($conn, 'session_timeout_minutes', (string) max(5, (int) ($_POST['session_timeout_minutes'] ?? 30)));
 
     if (!empty($_POST['reset_site_logo'])) {
@@ -182,6 +256,10 @@ if ($editTemplateId) {
     $activeTab = 'templates';
 }
 
+if (isset($_GET['edit_whatsapp'])) {
+    $activeTab = 'whatsapp';
+}
+
 $pageTitle = 'Settings';
 $activePage = 'settings.php';
 require __DIR__ . '/includes/header.php';
@@ -195,6 +273,11 @@ $settingsTabs = [
     'homepage' => [
         'label' => 'Homepage',
         'desc' => 'Hero, about & contact',
+        'icon' => panelIconSvg('pages'),
+    ],
+    'sections' => [
+        'label' => 'Sections',
+        'desc' => 'Headings, CTA & social',
         'icon' => panelIconSvg('pages'),
     ],
     'seo' => [
@@ -213,9 +296,19 @@ $settingsTabs = [
         'icon' => panelIconSvg('email'),
     ],
     'templates' => [
-        'label' => 'Templates',
+        'label' => 'Email Templates',
         'desc' => 'Quick reply emails',
         'icon' => panelIconSvg('templates'),
+    ],
+    'whatsapp' => [
+        'label' => 'WhatsApp',
+        'desc' => 'Quick reply messages',
+        'icon' => panelIconSvg('email'),
+    ],
+    'email-log' => [
+        'label' => 'Email Log',
+        'desc' => 'Delivery history',
+        'icon' => panelIconSvg('email'),
     ],
 ];
 ?>

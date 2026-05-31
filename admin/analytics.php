@@ -68,16 +68,16 @@ require __DIR__ . '/includes/header.php';
     <div class="analytics-hero">
         <div class="analytics-hero-text">
             <h1 class="analytics-page-title">Analytics</h1>
-            <p class="analytics-page-desc">Pehle overview dekho, phir tab se <strong>Traffic</strong> ya <strong>Enquiries</strong> detail me jao.</p>
+            <p class="analytics-page-desc">Review the overview first, then open the <strong>Traffic</strong> or <strong>Enquiries</strong> tab for details.</p>
         </div>
         <div class="analytics-insight-grid">
             <div class="analytics-insight-card">
-                <span class="analytics-insight-label">Aaj ke hits</span>
+                <span class="analytics-insight-label">Today's hits</span>
                 <strong><?= number_format($visitStats['today']) ?></strong>
                 <small><?= number_format($visitStats['unique_today']) ?> unique</small>
             </div>
             <div class="analytics-insight-card">
-                <span class="analytics-insight-label">Aaj ki enquiries</span>
+                <span class="analytics-insight-label">Today's enquiries</span>
                 <strong><?= number_format($enquiryStats['today']) ?></strong>
                 <small><?= number_format($enquiryStats['new']) ?> new pending</small>
             </div>

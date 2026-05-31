@@ -7,6 +7,7 @@ $editId = (int) ($_GET['edit'] ?? 0);
 $editItem = $editId ? getServiceById($conn, $editId) : null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    verifyCsrfToken();
     $action = $_POST['action'] ?? '';
 
     if ($action === 'save') {
@@ -93,6 +94,7 @@ require __DIR__ . '/includes/header.php';
         ?>
         <div class="panel-body">
             <form method="POST" class="admin-form">
+                <?= csrfField() ?>
                 <input type="hidden" name="action" value="save">
                 <input type="hidden" name="id" value="<?= (int) ($editItem['id'] ?? 0) ?>">
                 <div class="form-group">

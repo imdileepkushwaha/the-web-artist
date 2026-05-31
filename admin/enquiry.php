@@ -22,6 +22,7 @@ $emailTemplates = getEmailTemplates($conn);
 $assignedUser = !empty($enquiry['assigned_to']) ? getAdminUserById($conn, (int) $enquiry['assigned_to']) : null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isViewer()) {
+    verifyCsrfToken();
     $action = $_POST['action'] ?? 'update';
 
     if ($action === 'delete') {
@@ -288,7 +289,8 @@ require __DIR__ . '/includes/header.php';
                 ?>
                 <div class="panel-body">
                     <?php if (!isViewer()): ?>
-                    <form method="POST" action="enquiry.php?id=<?= $id ?>" class="admin-form">
+                    <form method="POST" action="<?= adminUrl('enquiry', ['id' => $id]) ?>" class="admin-form">
+                        <?= csrfField() ?>
                         <input type="hidden" name="action" value="update">
 
                         <div class="form-group">
@@ -393,7 +395,8 @@ require __DIR__ . '/includes/header.php';
                     <?php endif; ?>
 
                     <?php if (!isViewer()): ?>
-                    <form method="POST" action="enquiry.php?id=<?= $id ?>" class="admin-form enquiry-note-form">
+                    <form method="POST" action="<?= adminUrl('enquiry', ['id' => $id]) ?>" class="admin-form enquiry-note-form">
+                        <?= csrfField() ?>
                         <input type="hidden" name="action" value="add_note">
                         <div class="form-group">
                             <label for="note">Add New Note</label>
@@ -413,7 +416,8 @@ require __DIR__ . '/includes/header.php';
                             <strong>Delete Enquiry</strong>
                             <p>Permanently remove this enquiry and all related notes.</p>
                         </div>
-                        <form method="POST" action="enquiry.php?id=<?= $id ?>" data-confirm-delete>
+                        <form method="POST" action="<?= adminUrl('enquiry', ['id' => $id]) ?>" data-confirm-delete>
+                            <?= csrfField() ?>
                             <input type="hidden" name="action" value="delete">
                             <button type="submit" class="btn btn-danger btn-sm">Delete</button>
                         </form>
@@ -443,6 +447,7 @@ require __DIR__ . '/includes/header.php';
         </div>
         <div class="admin-modal-body">
             <form method="POST" class="admin-form" id="sendEmailForm">
+                <?= csrfField() ?>
                 <input type="hidden" name="action" value="send_email">
                 <div class="form-group">
                     <label for="email_subject">Subject</label>

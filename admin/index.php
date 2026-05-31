@@ -3,6 +3,7 @@ require_once __DIR__ . '/includes/auth.php';
 requireAdminLogin();
 
 $conn = getAdminDb();
+maybeRunScheduledBackup($conn);
 $stats = getDashboardStats($conn);
 
 $dateFrom = trim($_GET['from'] ?? '');

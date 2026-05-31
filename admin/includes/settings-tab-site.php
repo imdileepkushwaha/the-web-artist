@@ -16,9 +16,25 @@
         $siteLogoPreview = preg_match('#^https?://#i', $siteLogoPath) ? $siteLogoPath : '../' . ltrim(str_replace('\\', '/', $siteLogoPath), '/');
         ?>
         <form method="POST" class="admin-form" enctype="multipart/form-data">
+            <?= csrfField() ?>
             <input type="hidden" name="action" value="site">
 
             <div class="settings-section-divider settings-section-divider-first">
+                <h3>Brand</h3>
+                <p>Site name shown in the browser tab, footer and meta tags.</p>
+            </div>
+            <div class="settings-form-grid">
+                <div class="form-group">
+                    <label for="site_name">Site Name</label>
+                    <input type="text" id="site_name" name="site_name" value="<?= sanitize($settings['site_name'] ?? SITE_NAME) ?>">
+                </div>
+                <div class="form-group">
+                    <label for="site_tagline">Tagline</label>
+                    <input type="text" id="site_tagline" name="site_tagline" value="<?= sanitize($settings['site_tagline'] ?? SITE_TAGLINE) ?>">
+                </div>
+            </div>
+
+            <div class="settings-section-divider">
                 <h3>Website Logo</h3>
                 <p>Logo shown in the website navigation bar.</p>
             </div>
@@ -101,6 +117,12 @@
             $sessionTimeoutValue = (int) ($settings['session_timeout_minutes'] ?? 30);
             require __DIR__ . '/session-timeout-field.php';
             ?>
+            <div class="form-group">
+                <label class="checkbox-label settings-checkbox-label">
+                    <input type="checkbox" name="dark_mode_default" value="1" <?= ($settings['dark_mode'] ?? '0') === '1' ? 'checked' : '' ?>>
+                    <span>Enable dark mode by default for admin panel</span>
+                </label>
+            </div>
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary">Save Settings</button>
             </div>

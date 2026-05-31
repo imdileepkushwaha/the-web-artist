@@ -10,16 +10,19 @@ $offset = ($pageNum - 1) * $perPage;
 
 $activityLog = getActivityLog($conn, $perPage, $offset);
 $loginHistory = getLoginHistory($conn, $perPage, $offset);
+$totalRows = $tab === 'logins' ? countLoginHistory($conn) : countActivityLog($conn);
+$totalPages = max(1, (int) ceil($totalRows / $perPage));
 
 $pageTitle = 'Activity Log';
+$activePage = 'activity';
 require __DIR__ . '/includes/header.php';
 ?>
 
 <div class="enquiry-stats-row">
-    <a href="activity.php?tab=activity" class="enquiry-stat-pill <?= $tab === 'activity' ? 'active' : '' ?>">
+    <a href="?tab=activity" class="enquiry-stat-pill <?= $tab === 'activity' ? 'active' : '' ?>">
         <span class="pill-label">Activity Log</span>
     </a>
-    <a href="activity.php?tab=logins" class="enquiry-stat-pill <?= $tab === 'logins' ? 'active' : '' ?>">
+    <a href="?tab=logins" class="enquiry-stat-pill <?= $tab === 'logins' ? 'active' : '' ?>">
         <span class="pill-label">Login History</span>
     </a>
 </div>
@@ -72,6 +75,21 @@ require __DIR__ . '/includes/header.php';
                 </table>
             <?php endif; ?>
         </div>
+
+        <?php if ($totalPages > 1): ?>
+            <div class="pagination" style="margin-top:16px;">
+                <?php
+                $baseQuery = ['tab' => $tab];
+                $prevQuery = http_build_query(array_merge($baseQuery, ['page' => max(1, $pageNum - 1)]));
+                $nextQuery = http_build_query(array_merge($baseQuery, ['page' => min($totalPages, $pageNum + 1)]));
+                ?>
+                <a href="?<?= $prevQuery ?>" class="page-link <?= $pageNum <= 1 ? 'disabled' : '' ?>">← Prev</a>
+                <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+                    <a href="?<?= http_build_query(array_merge($baseQuery, ['page' => $i])) ?>" class="page-link <?= $i === $pageNum ? 'active' : '' ?>"><?= $i ?></a>
+                <?php endfor; ?>
+                <a href="?<?= $nextQuery ?>" class="page-link <?= $pageNum >= $totalPages ? 'disabled' : '' ?>">Next →</a>
+            </div>
+        <?php endif; ?>
     </div>
 </div>
 

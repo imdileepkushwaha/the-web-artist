@@ -180,6 +180,8 @@ function verifyAdminCurrentPassword(array $account, string $currentPassword): bo
 
     return defined('ADMIN_USERNAME')
         && defined('ADMIN_PASSWORD')
+        && defined('TWA_ALLOW_CONFIG_LOGIN')
+        && TWA_ALLOW_CONFIG_LOGIN
         && $account['username'] === ADMIN_USERNAME
         && $currentPassword === ADMIN_PASSWORD;
 }
@@ -224,7 +226,7 @@ function updateAdminUserPassword(PDO $conn, int $userId, string $password): bool
         return false;
     }
 
-    $stmt = $conn->prepare('UPDATE admin_users SET password_hash = :password_hash WHERE id = :id');
+    $stmt = $conn->prepare('UPDATE admin_users SET password_hash = :password_hash, force_password_change = 0 WHERE id = :id');
     $stmt->execute([
         ':password_hash' => password_hash($password, PASSWORD_DEFAULT),
         ':id' => $userId,
@@ -255,7 +257,7 @@ function requireAdminRole(): void
     if (!isAdminRole()) {
         http_response_code(403);
         flashMessage('error', 'You do not have permission to perform this action.');
-        header('Location: index.php');
+        header('Location: ' . adminUrl());
         exit;
     }
 }
@@ -869,7 +871,7 @@ function globalAdminSearch(PDO $conn, string $query, int $limit = 8): array
 
 function generateDatabaseBackup(PDO $conn): string
 {
-    $tables = ['enquiries', 'enquiry_notes', 'admin_settings', 'admin_users', 'faq_items', 'testimonials', 'services', 'portfolio_projects', 'trusted_clients', 'email_templates', 'activity_log', 'login_history', 'site_visits'];
+    $tables = ['enquiries', 'enquiry_notes', 'admin_settings', 'admin_users', 'faq_items', 'testimonials', 'services', 'portfolio_projects', 'trusted_clients', 'email_templates', 'whatsapp_templates', 'email_log', 'activity_log', 'login_history', 'site_visits'];
     $sql = "-- The Web Artist Database Backup\n-- Generated: " . date('Y-m-d H:i:s') . "\n\n";
 
     foreach ($tables as $table) {
@@ -1156,11 +1158,18 @@ function buildWhatsAppUrl(string $phone, string $message): string
 
 function getWhatsAppQuickTemplates(): array
 {
-    return [
-        ['name' => 'Intro', 'message' => 'Hi {{name}}, thank you for your enquiry about {{service}}. This is {{admin_name}} from The Web Artist. How can I help you today?'],
-        ['name' => 'Follow Up', 'message' => 'Hi {{name}}, just following up on your enquiry for {{service}}. Are you available for a quick call today?'],
-        ['name' => 'Demo Invite', 'message' => 'Hi {{name}}, we would love to show you a demo of our {{service}} solution. When would be a good time for you?'],
-    ];
+    $conn = getDbConnection();
+    $rows = $conn->query('SELECT name, body FROM whatsapp_templates ORDER BY id ASC')->fetchAll();
+    $templates = [];
+
+    foreach ($rows as $row) {
+        $templates[] = [
+            'name' => $row['name'],
+            'message' => $row['body'],
+        ];
+    }
+
+    return $templates;
 }
 
 function applyMessageTemplate(string $body, array $enquiry, ?string $adminName = null): string
@@ -1186,4 +1195,186 @@ function applyMessageTemplate(string $body, array $enquiry, ?string $adminName =
     ];
 
     return str_replace(array_keys($replacements), array_values($replacements), $body);
+}
+
+function setEncryptedSetting(PDO $conn, string $key, string $value): void
+{
+    setSetting($conn, $key, $value === '' ? '' : twaEncryptSecret($value));
+}
+
+function getEncryptedSetting(PDO $conn, string $key, string $default = ''): string
+{
+    return twaDecryptSecret((string) getSetting($conn, $key, $default));
+}
+
+function getWhatsAppTemplates(PDO $conn): array
+{
+    return $conn->query('SELECT * FROM whatsapp_templates ORDER BY id ASC')->fetchAll();
+}
+
+function getWhatsAppTemplateById(PDO $conn, int $id): ?array
+{
+    $stmt = $conn->prepare('SELECT * FROM whatsapp_templates WHERE id = :id LIMIT 1');
+    $stmt->execute([':id' => $id]);
+    $row = $stmt->fetch();
+
+    return $row ?: null;
+}
+
+function createWhatsAppTemplate(PDO $conn, string $name, string $body): bool
+{
+    $stmt = $conn->prepare('INSERT INTO whatsapp_templates (name, body) VALUES (:name, :body)');
+
+    return $stmt->execute([':name' => $name, ':body' => $body]);
+}
+
+function updateWhatsAppTemplate(PDO $conn, int $id, string $name, string $body): bool
+{
+    $stmt = $conn->prepare('UPDATE whatsapp_templates SET name = :name, body = :body WHERE id = :id');
+
+    return $stmt->execute([':name' => $name, ':body' => $body, ':id' => $id]);
+}
+
+function deleteWhatsAppTemplate(PDO $conn, int $id): bool
+{
+    $stmt = $conn->prepare('DELETE FROM whatsapp_templates WHERE id = :id');
+
+    return $stmt->execute([':id' => $id]);
+}
+
+function logEmailDelivery(PDO $conn, string $recipient, string $subject, string $context, bool $success, string $message = ''): void
+{
+    $stmt = $conn->prepare('INSERT INTO email_log (recipient, subject, context, status, message)
+        VALUES (:recipient, :subject, :context, :status, :message)');
+    $stmt->execute([
+        ':recipient' => $recipient,
+        ':subject' => $subject,
+        ':context' => $context,
+        ':status' => $success ? 'sent' : 'failed',
+        ':message' => $message,
+    ]);
+}
+
+function getEmailLog(PDO $conn, int $limit = 50, int $offset = 0): array
+{
+    $stmt = $conn->prepare('SELECT * FROM email_log ORDER BY created_at DESC LIMIT :limit OFFSET :offset');
+    $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+    $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+    $stmt->execute();
+
+    return $stmt->fetchAll();
+}
+
+function countEmailLog(PDO $conn): int
+{
+    return (int) $conn->query('SELECT COUNT(*) FROM email_log')->fetchColumn();
+}
+
+function countActivityLog(PDO $conn): int
+{
+    return (int) $conn->query('SELECT COUNT(*) FROM activity_log')->fetchColumn();
+}
+
+function countLoginHistory(PDO $conn): int
+{
+    return (int) $conn->query('SELECT COUNT(*) FROM login_history')->fetchColumn();
+}
+
+function adminMustChangePassword(PDO $conn): bool
+{
+    $userId = adminUserId();
+
+    if (!$userId) {
+        return false;
+    }
+
+    $stmt = $conn->prepare('SELECT force_password_change FROM admin_users WHERE id = :id LIMIT 1');
+    $stmt->execute([':id' => $userId]);
+    $row = $stmt->fetch();
+
+    return $row && (int) ($row['force_password_change'] ?? 0) === 1;
+}
+
+function requirePasswordChangeIfNeeded(PDO $conn): void
+{
+    if (!adminMustChangePassword($conn)) {
+        return;
+    }
+
+    $script = basename($_SERVER['PHP_SELF'] ?? '');
+    $tab = $_GET['tab'] ?? '';
+
+    if ($script === 'settings.php' && $tab === 'password') {
+        return;
+    }
+
+    if ($script === 'logout.php') {
+        return;
+    }
+
+    flashMessage('warning', 'Please change your default password before continuing.');
+    header('Location: ' . adminUrl('settings', ['tab' => 'password', 'required' => 1]));
+    exit;
+}
+
+function maybeRunScheduledBackup(PDO $conn): void
+{
+    if (getSetting($conn, 'backup_schedule_enabled', '0') !== '1') {
+        return;
+    }
+
+    $days = max(1, (int) getSetting($conn, 'backup_schedule_days', '7'));
+    $lastRun = trim((string) getSetting($conn, 'backup_last_run', ''));
+
+    if ($lastRun !== '' && strtotime($lastRun) > strtotime('-' . $days . ' days')) {
+        return;
+    }
+
+    $dir = dirname(__DIR__, 2) . '/storage/backups';
+
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0755, true);
+    }
+
+    $filename = $dir . '/auto-' . date('Y-m-d-His') . '.sql';
+    $sql = generateDatabaseBackup($conn);
+
+    if (@file_put_contents($filename, $sql) !== false) {
+        setSetting($conn, 'backup_last_run', date('Y-m-d H:i:s'));
+        logActivity($conn, 'auto_backup', 'system', null, basename($filename));
+    }
+}
+
+function restoreDatabaseFromSql(PDO $conn, string $sql): array
+{
+    $sql = trim($sql);
+
+    if ($sql === '') {
+        return ['success' => false, 'message' => 'Backup file is empty.'];
+    }
+
+    if (stripos($sql, 'INSERT INTO') === false && stripos($sql, 'CREATE TABLE') === false) {
+        return ['success' => false, 'message' => 'File does not look like a valid SQL backup.'];
+    }
+
+    try {
+        $conn->exec('SET FOREIGN_KEY_CHECKS=0');
+        $statements = preg_split('/;\s*\n/', $sql);
+
+        foreach ($statements as $statement) {
+            $statement = trim($statement);
+
+            if ($statement === '' || str_starts_with($statement, '--')) {
+                continue;
+            }
+
+            $conn->exec($statement);
+        }
+
+        $conn->exec('SET FOREIGN_KEY_CHECKS=1');
+
+        return ['success' => true, 'message' => 'Database restored successfully.'];
+    } catch (Throwable $e) {
+        return ['success' => false, 'message' => 'Restore failed: ' . $e->getMessage()];
+    }
 }

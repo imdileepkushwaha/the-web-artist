@@ -8,7 +8,11 @@
     require __DIR__ . '/panel-header.php';
     ?>
     <div class="panel-body">
-        <form method="POST" class="admin-form" id="password-change-form" action="settings.php?tab=password">
+        <?php if (isset($_GET['required'])): ?>
+            <div class="alert alert-warning" style="margin-bottom:16px;">You must change your default password before using the admin panel.</div>
+        <?php endif; ?>
+        <form method="POST" class="admin-form" id="password-change-form" action="<?= adminUrl('settings', ['tab' => 'password']) ?>">
+            <?= csrfField() ?>
             <input type="hidden" name="action" value="password">
             <?php
             unset($passwordFieldId, $passwordFieldLabel, $passwordFieldName, $passwordAutocomplete, $passwordRequired, $passwordMinLength);

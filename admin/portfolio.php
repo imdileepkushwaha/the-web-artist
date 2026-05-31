@@ -14,6 +14,7 @@ $editProject = $editProjectId ? getPortfolioProjectById($conn, $editProjectId) :
 $editTrusted = $editTrustedId ? getTrustedClientById($conn, $editTrustedId) : null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    verifyCsrfToken();
     $action = $_POST['action'] ?? '';
 
     if ($action === 'save_project') {
@@ -135,6 +136,7 @@ require __DIR__ . '/includes/header.php';
         ?>
         <div class="panel-body">
             <form method="POST" class="admin-form">
+                <?= csrfField() ?>
                 <input type="hidden" name="action" value="save_project">
                 <input type="hidden" name="id" value="<?= (int) ($editProject['id'] ?? 0) ?>">
                 <div class="form-group">
@@ -174,6 +176,7 @@ require __DIR__ . '/includes/header.php';
             </form>
             <?php if ($editProject): ?>
             <form method="POST" class="admin-form" style="margin-top:16px;" data-confirm-delete>
+                <?= csrfField() ?>
                 <input type="hidden" name="action" value="delete_project">
                 <input type="hidden" name="id" value="<?= (int) $editProject['id'] ?>">
                 <button type="submit" class="btn btn-danger btn-sm">Delete Project</button>
@@ -229,6 +232,7 @@ require __DIR__ . '/includes/header.php';
         ?>
         <div class="panel-body">
             <form method="POST" class="admin-form">
+                <?= csrfField() ?>
                 <input type="hidden" name="action" value="save_trusted">
                 <input type="hidden" name="id" value="<?= (int) ($editTrusted['id'] ?? 0) ?>">
                 <div class="form-group">
@@ -236,8 +240,9 @@ require __DIR__ . '/includes/header.php';
                     <input type="text" id="name" name="name" required value="<?= sanitize($editTrusted['name'] ?? '') ?>">
                 </div>
                 <div class="form-group">
-                    <label for="logo_text">Logo Text (2 letters)</label>
-                    <input type="text" id="logo_text" name="logo_text" maxlength="10" value="<?= sanitize($editTrusted['logo_text'] ?? '') ?>" placeholder="CH">
+                    <label for="logo_text">Logo Key</label>
+                    <input type="text" id="logo_text" name="logo_text" maxlength="30" value="<?= sanitize($editTrusted['logo_text'] ?? '') ?>" placeholder="technova">
+                    <p class="form-hint">Use: <code>technova</code>, <code>healthsync</code>, <code>educore</code>, or <code>retailpro</code> for SVG logos. Leave blank for auto fallback.</p>
                 </div>
                 <?php
                 $sortOrderValue = (int) ($editTrusted['sort_order'] ?? 0);
@@ -256,6 +261,7 @@ require __DIR__ . '/includes/header.php';
             </form>
             <?php if ($editTrusted): ?>
             <form method="POST" class="admin-form" style="margin-top:16px;" data-confirm-delete>
+                <?= csrfField() ?>
                 <input type="hidden" name="action" value="delete_trusted">
                 <input type="hidden" name="id" value="<?= (int) $editTrusted['id'] ?>">
                 <button type="submit" class="btn btn-danger btn-sm">Delete Client</button>

@@ -2,11 +2,19 @@
 require_once __DIR__ . '/includes/analytics.php';
 require_once __DIR__ . '/includes/site-config.php';
 require_once __DIR__ . '/includes/site-content.php';
+require_once __DIR__ . '/includes/trusted-logo-svgs.php';
+require_once __DIR__ . '/includes/security.php';
+
+twaEnsureSession();
+$formError = $_SESSION['form_error'] ?? '';
+$formErrorSource = $_SESSION['form_error_source'] ?? '';
+unset($_SESSION['form_error'], $_SESSION['form_error_source']);
 
 $conn = getDbConnection();
 recordWebsiteVisit('home');
 $siteContent = initSiteContent();
 $homepage = twaLoadHomepageSettings();
+$sections = twaLoadSectionsSettings();
 $siteServices = $siteContent['services'];
 $siteTestimonials = $siteContent['testimonials'];
 $siteFaq = $siteContent['faq'];
@@ -35,7 +43,13 @@ $siteTrustedClients = $siteContent['trusted_clients'];
                     <li><a href="#home" class="nav-link active">Home</a></li>
                     <li><a href="#about" class="nav-link">About Us</a></li>
                     <li><a href="#services" class="nav-link">Services</a></li>
+                    <?php if (!empty($sitePortfolio) && ($sections['nav_show_portfolio'] ?? '1') === '1'): ?>
+                    <li><a href="#portfolio" class="nav-link">Portfolio</a></li>
+                    <?php endif; ?>
                     <li><a href="#testimonials" class="nav-link">Testimonials</a></li>
+                    <?php if (!empty($siteFaq) && ($sections['nav_show_faq'] ?? '1') === '1'): ?>
+                    <li><a href="#faq" class="nav-link">FAQ</a></li>
+                    <?php endif; ?>
                     <li><a href="#contact" class="nav-link">Contact</a></li>
                 </ul>
             </nav>
@@ -102,7 +116,7 @@ $siteTrustedClients = $siteContent['trusted_clients'];
 
                 
             </div>
-            <div class="hero-form-container animate fade-in delay-1">
+            <div class="hero-form-container">
                 <div class="hero-form-glow" aria-hidden="true"></div>
                 <div class="glass-form hero-enquiry-form">
                     <div class="hero-form-top-accent" aria-hidden="true"></div>
@@ -118,7 +132,10 @@ $siteTrustedClients = $siteContent['trusted_clients'];
                         </div>
                     </div>
                     <form action="submit.php" method="POST" id="enquiry-form" class="hero-form-fields">
+                        <?= csrfField() ?>
+                        <?= honeypotField() ?>
                         <input type="hidden" name="source" value="hero">
+                        <?php if ($formError !== '' && $formErrorSource === 'hero'): ?><div class="form-error-banner"><?= htmlspecialchars($formError) ?></div><?php endif; ?>
                         <div class="hero-form-row">
                             <div class="input-group input-with-icon">
                                 <span class="input-icon" aria-hidden="true">
@@ -144,23 +161,32 @@ $siteTrustedClients = $siteContent['trusted_clients'];
                                 <span class="input-icon" aria-hidden="true">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
                                 </span>
+                                <?php
+                                $heroServiceOptions = [];
+
+                                if (!empty($siteServices)) {
+                                    foreach ($siteServices as $svc) {
+                                        $heroServiceOptions[] = (string) $svc['title'];
+                                    }
+                                } else {
+                                    $heroServiceOptions = [
+                                        'Ecommerce Software',
+                                        'MLM Software',
+                                        'School Software',
+                                        'Hospital Software',
+                                        'Inventory Management',
+                                        'Library Software',
+                                        'Pharmacy Software',
+                                        'AI Support System',
+                                    ];
+                                }
+
+                                $heroServiceOptions[] = 'Appointment Booking Automation';
+                                ?>
                                 <select name="service" required>
-                                    <option value="" disabled selected>Select Service</option>
-                                    <?php if (!empty($siteServices)): ?>
-                                        <?php foreach ($siteServices as $svc): ?>
-                                            <option value="<?= htmlspecialchars($svc['title']) ?>"><?= htmlspecialchars($svc['title']) ?></option>
-                                        <?php endforeach; ?>
-                                    <?php else: ?>
-                                    <option value="Ecommerce Software">Ecommerce Software</option>
-                                    <option value="MLM Software">MLM Software</option>
-                                    <option value="School Software">School Software</option>
-                                    <option value="Hospital Software">Hospital Software</option>
-                                    <option value="Inventory Management">Inventory Management</option>
-                                    <option value="Library Software">Library Software</option>
-                                    <option value="Pharmacy Software">Pharmacy Software</option>
-                                    <option value="AI Support System">AI Support System</option>
-                                    <?php endif; ?>
-                                    <option value="Appointment Booking Automation">Appointment Booking Automation</option>
+                                    <?php foreach ($heroServiceOptions as $index => $serviceTitle): ?>
+                                        <option value="<?= htmlspecialchars($serviceTitle) ?>" <?= $index === 0 ? 'selected' : '' ?>><?= htmlspecialchars($serviceTitle) ?></option>
+                                    <?php endforeach; ?>
                                 </select>
                             </div>
                         </div>
@@ -201,31 +227,21 @@ $siteTrustedClients = $siteContent['trusted_clients'];
                     <?= htmlspecialchars($homepage['about_badge']) ?>
                 </span>
                 <h2>
-                    Crafting Digital
+                    <?= htmlspecialchars($sections['about_title_prefix']) ?>
                     <span class="text-gradient about-title-accent"><?= htmlspecialchars($homepage['about_title_accent']) ?></span>
                     <span class="about-title-sub"><?= htmlspecialchars($homepage['about_title_sub']) ?></span>
                 </h2>
                 <p class="about-lead"><?= htmlspecialchars($homepage['about_lead']) ?></p>
                 <p class="about-desc"><?= htmlspecialchars($homepage['about_desc']) ?></p>
                 <ul class="about-features">
+                    <?php for ($i = 1; $i <= 3; $i++): ?>
                     <li>
                         <span class="about-check" aria-hidden="true">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
                         </span>
-                        Custom-built for your workflow
+                        <strong><?= htmlspecialchars($sections['about_feature' . $i . '_title']) ?></strong> — <?= htmlspecialchars($sections['about_feature' . $i . '_desc']) ?>
                     </li>
-                    <li>
-                        <span class="about-check" aria-hidden="true">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
-                        </span>
-                        Scalable & future-ready architecture
-                    </li>
-                    <li>
-                        <span class="about-check" aria-hidden="true">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
-                        </span>
-                        Dedicated support from day one
-                    </li>
+                    <?php endfor; ?>
                 </ul>
                 <div class="about-stats">
                     <div class="stat-item">
@@ -261,8 +277,8 @@ $siteTrustedClients = $siteContent['trusted_clients'];
                     <div class="floating-card glass-panel">
                         <div class="card-icon">🚀</div>
                         <div class="card-text">
-                            <h4>Innovation First</h4>
-                            <p>Cutting-edge tech stack</p>
+                            <h4><?= htmlspecialchars($sections['about_card_title']) ?></h4>
+                            <p><?= htmlspecialchars($sections['about_card_text']) ?></p>
                         </div>
                     </div>
                 </div>
@@ -274,9 +290,9 @@ $siteTrustedClients = $siteContent['trusted_clients'];
     <section id="services" class="services">
         <div class="container">
             <div class="section-header text-center animate slide-up">
-                <span class="section-badge badge-light">WHAT WE DO</span>
-                <h2>Our Premium <span class="text-gradient">Services</span></h2>
-                <p class="subtitle">Comprehensive software solutions tailored for your industry.</p>
+                <span class="section-badge badge-light"><?= htmlspecialchars($sections['services_badge']) ?></span>
+                <h2><?= htmlspecialchars($sections['services_title']) ?></h2>
+                <p class="subtitle"><?= htmlspecialchars($sections['services_subtitle']) ?></p>
             </div>
             
             <div class="services-grid">
@@ -375,12 +391,17 @@ $siteTrustedClients = $siteContent['trusted_clients'];
                 <span class="section-badge badge-light">TRUSTED BY</span>
                 <h2>Companies That <span class="text-gradient">Trust Us</span></h2>
             </div>
-            <div class="trusted-grid animate slide-up delay-1">
-                <?php foreach ($siteTrustedClients as $client): ?>
-                    <div class="trusted-logo">
-                        <span><?= htmlspecialchars($client['logo_text'] ?: strtoupper(substr($client['name'], 0, 2))) ?></span>
-                        <small><?= htmlspecialchars($client['name']) ?></small>
-                    </div>
+            <div class="trusted-logos trusted-logos-section animate slide-up delay-1">
+                <?php foreach ($siteTrustedClients as $index => $client): ?>
+                    <?php
+                    $logoKey = trustedClientLogoKey((string) ($client['logo_text'] ?? ''), (string) $client['name']);
+                    $svg = trustedClientLogoSvg($logoKey, $index);
+                    echo $svg ?? trustedClientLogoFallbackSvg(
+                        (string) $client['name'],
+                        (string) ($client['logo_text'] ?? ''),
+                        $index
+                    );
+                    ?>
                 <?php endforeach; ?>
             </div>
         </div>
@@ -424,9 +445,9 @@ $siteTrustedClients = $siteContent['trusted_clients'];
     <section id="testimonials" class="testimonials">
         <div class="container">
             <div class="section-header text-center animate slide-up">
-                <span class="section-badge">TESTIMONIALS</span>
-                <h2>What Our <span class="text-gradient">Clients Say</span></h2>
-                <p class="subtitle">Don't just take our word for it—hear from the businesses we've helped grow.</p>
+                <span class="section-badge"><?= htmlspecialchars($sections['testimonials_badge']) ?></span>
+                <h2><?= htmlspecialchars($sections['testimonials_title']) ?></h2>
+                <p class="subtitle"><?= htmlspecialchars($sections['testimonials_subtitle']) ?></p>
             </div>
             
             <div class="testimonials-grid">
@@ -493,9 +514,9 @@ $siteTrustedClients = $siteContent['trusted_clients'];
         <div class="container">
             <div class="faq-grid">
                 <div class="faq-intro animate slide-up">
-                    <span class="section-badge">FAQ</span>
-                    <h2>Frequently Asked <span class="text-gradient">Questions</span></h2>
-                    <p class="faq-intro-text">Everything you need to know about our services, process, and support. Can't find what you're looking for?</p>
+                    <span class="section-badge"><?= htmlspecialchars($sections['faq_badge']) ?></span>
+                    <h2><?= htmlspecialchars($sections['faq_title']) ?></h2>
+                    <p class="faq-intro-text"><?= htmlspecialchars($sections['faq_intro']) ?></p>
                     <a href="#contact" class="faq-contact-link">
                         Contact our team
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
@@ -540,40 +561,40 @@ $siteTrustedClients = $siteContent['trusted_clients'];
             <div class="cta-card">
                 <span class="cta-badge">
                     <span class="cta-badge-dot"></span>
-                    Start Your Project Today
+                    <?= htmlspecialchars($sections['cta_badge']) ?>
                 </span>
                 <h2>
-                    Ready to Elevate Your
-                    <span class="text-gradient-alt cta-title-accent">Business?</span>
+                    <?= htmlspecialchars($sections['cta_title_line1']) ?>
+                    <span class="text-gradient-alt cta-title-accent"><?= htmlspecialchars($sections['cta_title_accent']) ?></span>
                 </h2>
-                <p class="cta-subtitle">Join hundreds of satisfied clients and transform your operations with modern, scalable IT solutions built for your industry.</p>
+                <p class="cta-subtitle"><?= htmlspecialchars($sections['cta_subtitle']) ?></p>
                 <div class="cta-perks">
                     <span class="cta-perk">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                        Free consultation
+                        <?= htmlspecialchars($sections['cta_perk1']) ?>
                     </span>
                     <span class="cta-perk">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                        Secure & reliable
+                        <?= htmlspecialchars($sections['cta_perk2']) ?>
                     </span>
                     <span class="cta-perk">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-                        Quick turnaround
+                        <?= htmlspecialchars($sections['cta_perk3']) ?>
                     </span>
                 </div>
                 <div class="cta-buttons">
                     <a href="#home" class="btn-primary btn-glow cta-btn-primary">
-                        Get Started Today
+                        <?= htmlspecialchars($sections['cta_btn_primary']) ?>
                         <svg class="btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                     </a>
-                    <a href="#contact" class="cta-btn-outline">Contact Sales</a>
+                    <a href="#contact" class="cta-btn-outline"><?= htmlspecialchars($sections['cta_btn_secondary']) ?></a>
                 </div>
                 <div class="cta-trust">
-                    <span>50+ Projects Delivered</span>
+                    <span><?= htmlspecialchars($sections['cta_trust1']) ?></span>
                     <span class="cta-trust-dot" aria-hidden="true"></span>
-                    <span>98% Client Satisfaction</span>
+                    <span><?= htmlspecialchars($sections['cta_trust2']) ?></span>
                     <span class="cta-trust-dot" aria-hidden="true"></span>
-                    <span>24/7 Dedicated Support</span>
+                    <span><?= htmlspecialchars($sections['cta_trust3']) ?></span>
                 </div>
             </div>
         </div>
@@ -583,9 +604,9 @@ $siteTrustedClients = $siteContent['trusted_clients'];
     <section id="contact" class="contact-section">
         <div class="container">
             <div class="section-header text-center animate slide-up">
-                <span class="section-badge">CONTACT US</span>
-                <h2>Get In <span class="text-gradient">Touch With Us</span></h2>
-                <p class="subtitle">Have questions or need a custom solution? We're here to help.</p>
+                <span class="section-badge"><?= htmlspecialchars($sections['contact_section_badge']) ?></span>
+                <h2><?= htmlspecialchars($sections['contact_section_title']) ?></h2>
+                <p class="subtitle"><?= htmlspecialchars($sections['contact_section_subtitle']) ?></p>
             </div>
             
             <div class="contact-container animate slide-up delay-1">
@@ -638,18 +659,19 @@ $siteTrustedClients = $siteContent['trusted_clients'];
                     <div class="social-links">
                         <span class="social-label">Follow Us</span>
                         <div class="social-icons">
-                            <a href="#" class="social-icon" aria-label="LinkedIn">
-                                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
-                            </a>
-                            <a href="#" class="social-icon" aria-label="Twitter">
-                                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-                            </a>
-                            <a href="#" class="social-icon" aria-label="Facebook">
-                                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-                            </a>
-                            <a href="#" class="social-icon" aria-label="Instagram">
-                                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z"/></svg>
-                            </a>
+                            <?php
+                            $socialSvgs = [
+                                'linkedin' => '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>',
+                                'twitter' => '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>',
+                                'facebook' => '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>',
+                                'instagram' => '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z"/></svg>',
+                            ];
+                            foreach ($socialSvgs as $network => $svg):
+                                $url = trim((string) ($sections['social_' . $network] ?? ''));
+                                if ($url === '') continue;
+                            ?>
+                            <a href="<?= htmlspecialchars($url) ?>" class="social-icon" aria-label="<?= ucfirst($network) ?>" target="_blank" rel="noopener noreferrer"><?= $svg ?></a>
+                            <?php endforeach; ?>
                         </div>
                     </div>
                 </div>
@@ -662,14 +684,17 @@ $siteTrustedClients = $siteContent['trusted_clients'];
                             <div class="hero-form-heading">
                                 <span class="hero-form-badge">
                                     <span class="hero-form-badge-dot"></span>
-                                    We're Here to Help
+                                    <?= htmlspecialchars($sections['contact_form_badge']) ?>
                                 </span>
-                                <h3>Send a Message</h3>
-                                <p>Have a question or need a custom solution? Write to us anytime.</p>
+                                <h3><?= htmlspecialchars($sections['contact_form_title']) ?></h3>
+                                <p><?= htmlspecialchars($sections['contact_form_subtitle']) ?></p>
                             </div>
                         </div>
                         <form action="submit.php" method="POST" id="contact-form" class="hero-form-fields">
+                            <?= csrfField() ?>
+                            <?= honeypotField('website_url_contact') ?>
                             <input type="hidden" name="source" value="contact">
+                            <?php if ($formError !== '' && $formErrorSource === 'contact'): ?><div class="form-error-banner"><?= htmlspecialchars($formError) ?></div><?php endif; ?>
                             <div class="hero-form-row">
                                 <div class="input-group input-with-icon">
                                     <span class="input-icon" aria-hidden="true">
@@ -722,7 +747,7 @@ $siteTrustedClients = $siteContent['trusted_clients'];
     <!-- Footer -->
     <footer class="footer">
         <div class="container text-center">
-            <p>&copy; 2026 The Web Artist. All rights reserved.</p>
+            <p><?= htmlspecialchars($sections['footer_text']) ?></p>
         </div>
     </footer>
 

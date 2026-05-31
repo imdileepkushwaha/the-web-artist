@@ -30,6 +30,7 @@
                             <div class="cms-list-actions">
                                 <a href="settings.php?tab=templates&amp;edit_template=<?= (int) $item['id'] ?>" class="btn btn-secondary btn-sm">Edit</a>
                                 <form method="POST" class="inline-form" onsubmit="return confirm('Delete this template?');">
+                                    <?= csrfField() ?>
                                     <input type="hidden" name="action" value="template_delete">
                                     <input type="hidden" name="id" value="<?= (int) $item['id'] ?>">
                                     <button type="submit" class="btn btn-danger btn-sm">Delete</button>
@@ -53,6 +54,7 @@
         ?>
         <div class="panel-body">
             <form method="POST" class="admin-form">
+                <?= csrfField() ?>
                 <input type="hidden" name="action" value="template_save">
                 <input type="hidden" name="id" value="<?= (int) ($editTemplate['id'] ?? 0) ?>">
                 <div class="form-group">

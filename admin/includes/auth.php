@@ -24,7 +24,7 @@ function checkSessionTimeout(): void
 
     if (time() - $lastActivity > $timeoutSeconds) {
         logoutAdmin();
-        header('Location: login.php?timeout=1');
+        header('Location: ' . adminUrl('login', ['timeout' => 1]));
         exit;
     }
 
@@ -34,17 +34,21 @@ function checkSessionTimeout(): void
 function requireAdminLogin(): void
 {
     if (!isAdminLoggedIn()) {
-        header('Location: login.php');
+        header('Location: ' . adminUrl('login'));
         exit;
     }
 
     checkSessionTimeout();
+
+    if (function_exists('requirePasswordChangeIfNeeded')) {
+        requirePasswordChangeIfNeeded(getDbConnection());
+    }
 }
 
 function redirectIfLoggedIn(): void
 {
     if (isAdminLoggedIn()) {
-        header('Location: index.php');
+        header('Location: ' . adminUrl());
         exit;
     }
 }
@@ -52,8 +56,15 @@ function redirectIfLoggedIn(): void
 function loginAdmin(string $username, string $password): bool
 {
     $conn = getDbConnection();
-    $ip = $_SERVER['REMOTE_ADDR'] ?? null;
+    $ip = twaClientIp();
     $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? null;
+    $rateKey = 'login:' . $ip . ':' . strtolower($username);
+
+    if (!twaRateLimitCheck($rateKey, 8, 900)) {
+        recordLoginAttempt($conn, null, $username, false, $ip, $userAgent);
+
+        return false;
+    }
 
     $stmt = $conn->prepare('SELECT * FROM admin_users WHERE username = :username AND is_active = 1 LIMIT 1');
     $stmt->execute([':username' => $username]);
@@ -74,7 +85,7 @@ function loginAdmin(string $username, string $password): bool
         return true;
     }
 
-    if ($username === ADMIN_USERNAME && $password === ADMIN_PASSWORD) {
+    if ($username === ADMIN_USERNAME && $password === ADMIN_PASSWORD && defined('TWA_ALLOW_CONFIG_LOGIN') && TWA_ALLOW_CONFIG_LOGIN) {
         $fallbackUser = getAdminUserAccount($conn, $username);
 
         $_SESSION[ADMIN_SESSION_KEY] = true;

@@ -8,6 +8,7 @@ $openEditUserId = (int) ($_GET['edit'] ?? 0);
 $openResetUserId = (int) ($_GET['reset'] ?? 0);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    verifyCsrfToken();
     $action = $_POST['action'] ?? '';
 
     if ($action === 'create') {
@@ -198,6 +199,7 @@ require __DIR__ . '/includes/header.php';
         </div>
         <div class="admin-modal-body">
             <form method="POST" class="admin-form" id="addUserForm">
+                <?= csrfField() ?>
                 <input type="hidden" name="action" value="create">
                 <div class="users-form-grid">
                     <div class="form-group">
@@ -257,6 +259,7 @@ require __DIR__ . '/includes/header.php';
         </div>
         <div class="admin-modal-body">
             <form method="POST" class="admin-form">
+                <?= csrfField() ?>
                 <input type="hidden" name="action" value="update">
                 <input type="hidden" name="user_id" value="<?= (int) $editUser['id'] ?>">
                 <div class="users-form-grid">
@@ -312,6 +315,7 @@ require __DIR__ . '/includes/header.php';
         </div>
         <div class="admin-modal-body">
             <form method="POST" class="admin-form">
+                <?= csrfField() ?>
                 <input type="hidden" name="action" value="reset_password">
                 <input type="hidden" name="user_id" value="<?= (int) $resetUser['id'] ?>">
                 <?php

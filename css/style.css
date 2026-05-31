@@ -2048,8 +2048,11 @@ html {
 /* Animations */
 .animate {
     opacity: 0;
-    visibility: hidden;
     will-change: transform, opacity;
+}
+
+.animate:not(.fade-in) {
+    visibility: hidden;
 }
 
 .animate.is-visible {
@@ -2490,6 +2493,27 @@ html {
     padding: 100px 0;
     background: #ffffff;
     border-top: 1px solid rgba(12, 55, 98, 0.06);
+}
+
+.trusted-section .trusted-logos-section {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 40px 48px;
+    margin-top: 8px;
+}
+
+.trusted-section .trusted-logo {
+    display: block;
+    flex-shrink: 0;
+    transition: all 0.3s ease;
+    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.05));
+}
+
+.trusted-section .trusted-logo:hover {
+    transform: translateY(-3px) scale(1.05);
+    filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.1));
 }
 
 .trusted-grid {
@@ -3034,12 +3058,24 @@ html {
 }
 
 @media (max-width: 992px) {
+    .trusted-section .trusted-logos-section {
+        gap: 28px 32px;
+    }
+
     .trusted-grid {
         grid-template-columns: repeat(3, 1fr);
     }
 }
 
 @media (max-width: 768px) {
+    .trusted-section .trusted-logos-section {
+        gap: 24px;
+    }
+
+    .trusted-section .trusted-logo {
+        height: 22px;
+    }
+
     .trusted-grid {
         grid-template-columns: repeat(2, 1fr);
     }
@@ -3058,4 +3094,14 @@ html {
     .utility-card {
         padding: 36px 24px;
     }
+}
+
+.hero-form-fields .form-error-banner {
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    color: #b91c1c;
+    padding: 10px 12px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    margin-bottom: 12px;
 }

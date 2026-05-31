@@ -6,15 +6,16 @@ redirectIfLoggedIn();
 $error = isset($_GET['timeout']) ? 'Your session expired. Please sign in again.' : '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    verifyCsrfToken();
     $username = trim($_POST['username'] ?? '');
     $password = trim($_POST['password'] ?? '');
 
     if (loginAdmin($username, $password)) {
-        header('Location: index.php');
+        header('Location: ' . adminUrl());
         exit;
     }
 
-    $error = 'Invalid username or password.';
+    $error = 'Invalid username or password. Too many attempts may temporarily lock login.';
 }
 ?>
 <!DOCTYPE html>
@@ -39,7 +40,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="login-error"><?= sanitize($error) ?></div>
         <?php endif; ?>
 
-        <form method="POST" action="login.php">
+        <form method="POST" action="<?= adminUrl('login') ?>">
+            <?= csrfField() ?>
             <div class="form-group">
                 <label for="username">Username</label>
                 <input type="text" id="username" name="username" required autofocus placeholder="Enter username">

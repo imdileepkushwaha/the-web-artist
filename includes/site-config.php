@@ -4,8 +4,6 @@ if (defined('SITE_PHONE')) {
     return;
 }
 
-define('SITE_NAME', 'The Web Artist');
-define('SITE_TAGLINE', 'IT Solutions & Software Development');
 define('SITE_DEFAULT_DESCRIPTION', 'The Web Artist delivers custom software solutions — Ecommerce, School & Hospital Management, MLM, and AI systems — for businesses across India.');
 define('SITE_KEYWORDS', 'web development, software company, ecommerce software, school management software, hospital software, IT solutions India, The Web Artist');
 
@@ -120,6 +118,59 @@ function twaLoadHomepageSettings(): array
     return $settings;
 }
 
+function twaLoadSectionsSettings(): array
+{
+    $keys = [
+        'nav_show_portfolio', 'nav_show_faq',
+        'services_badge', 'services_title', 'services_subtitle',
+        'testimonials_badge', 'testimonials_title', 'testimonials_subtitle',
+        'faq_badge', 'faq_title', 'faq_subtitle', 'faq_intro',
+        'about_title_prefix', 'about_feature1_title', 'about_feature1_desc',
+        'about_feature2_title', 'about_feature2_desc', 'about_feature3_title', 'about_feature3_desc',
+        'about_card_title', 'about_card_text',
+        'cta_badge', 'cta_title_line1', 'cta_title_accent', 'cta_subtitle',
+        'cta_perk1', 'cta_perk2', 'cta_perk3', 'cta_btn_primary', 'cta_btn_secondary',
+        'cta_trust1', 'cta_trust2', 'cta_trust3',
+        'contact_section_badge', 'contact_section_title', 'contact_section_subtitle',
+        'contact_form_badge', 'contact_form_title', 'contact_form_subtitle',
+        'footer_text', 'social_linkedin', 'social_twitter', 'social_facebook', 'social_instagram',
+    ];
+
+    $defaults = [
+        'nav_show_portfolio' => '1', 'nav_show_faq' => '1',
+        'services_badge' => 'WHAT WE DO', 'services_title' => 'Our Premium Services', 'services_subtitle' => 'Comprehensive IT solutions tailored to your business needs.',
+        'testimonials_badge' => 'TESTIMONIALS', 'testimonials_title' => 'What Our Clients Say', 'testimonials_subtitle' => 'Trusted by businesses across industries.',
+        'faq_badge' => 'FAQ', 'faq_title' => 'Frequently Asked Questions', 'faq_subtitle' => 'Everything you need to know about our services.', 'faq_intro' => 'Got questions? We have answers. Browse our most common questions below.',
+        'about_title_prefix' => 'Crafting Digital', 'about_feature1_title' => 'Custom Solutions', 'about_feature1_desc' => 'Tailored software built for your unique business workflows.',
+        'about_feature2_title' => 'Scalable Architecture', 'about_feature2_desc' => 'Systems designed to grow with your business demands.',
+        'about_feature3_title' => 'Dedicated Support', 'about_feature3_desc' => 'Responsive team ready to help whenever you need us.',
+        'about_card_title' => 'Innovation First', 'about_card_text' => 'We combine cutting-edge technology with beautiful design.',
+        'cta_badge' => 'Start Your Project Today', 'cta_title_line1' => 'Ready to Elevate Your', 'cta_title_accent' => 'Business?',
+        'cta_subtitle' => 'Join hundreds of satisfied clients and transform your operations with modern, scalable IT solutions built for your industry.',
+        'cta_perk1' => 'Free consultation', 'cta_perk2' => 'Secure & reliable', 'cta_perk3' => 'Quick turnaround',
+        'cta_btn_primary' => 'Get Started Today', 'cta_btn_secondary' => 'Contact Sales',
+        'cta_trust1' => '50+ Projects Delivered', 'cta_trust2' => '98% Client Satisfaction', 'cta_trust3' => '24/7 Dedicated Support',
+        'contact_section_badge' => 'CONTACT US', 'contact_section_title' => 'Get In Touch With Us', 'contact_section_subtitle' => "Have questions or need a custom solution? We're here to help.",
+        'contact_form_badge' => "We're Here to Help", 'contact_form_title' => 'Send a Message', 'contact_form_subtitle' => 'Have a question or need a custom solution? Write to us anytime.',
+        'footer_text' => '© ' . date('Y') . ' The Web Artist. All rights reserved.',
+        'social_linkedin' => '', 'social_twitter' => '', 'social_facebook' => '', 'social_instagram' => '',
+    ];
+
+    $settings = twaFetchAdminSettings($keys);
+
+    foreach ($defaults as $key => $value) {
+        if (!isset($settings[$key]) || $settings[$key] === null || $settings[$key] === '') {
+            if (!str_starts_with($key, 'social_') && !in_array($key, ['nav_show_portfolio', 'nav_show_faq'], true)) {
+                $settings[$key] = $value;
+            } else {
+                $settings[$key] = $settings[$key] ?? $value;
+            }
+        }
+    }
+
+    return $settings;
+}
+
 function twaLoadSeoSettings(): array
 {
     $keys = ['seo_title', 'seo_description', 'seo_keywords', 'google_analytics_id', 'og_image_url'];
@@ -143,7 +194,10 @@ function twaLoadSeoSettings(): array
 }
 
 $siteSettings = twaLoadPublicSiteSettings();
+$__twaMeta = twaFetchAdminSettings(['site_name', 'site_tagline']);
 
+define('SITE_NAME', ($__twaMeta['site_name'] ?? '') !== '' ? $__twaMeta['site_name'] : 'The Web Artist');
+define('SITE_TAGLINE', ($__twaMeta['site_tagline'] ?? '') !== '' ? $__twaMeta['site_tagline'] : 'IT Solutions & Software Development');
 define('SITE_PHONE', $siteSettings['site_phone']);
 define('SITE_PHONE_RAW', twaNormalizePhoneRaw($siteSettings['site_phone']));
 define('SITE_EMAIL', $siteSettings['site_email']);
@@ -167,13 +221,12 @@ function twaPublicAssetUrl(string $path): string
 
 function getBaseUrl(): string
 {
+    require_once __DIR__ . '/url.php';
+
     $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
     $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-    $scriptName = $_SERVER['SCRIPT_NAME'] ?? '/index.php';
-    $basePath = str_replace('\\', '/', dirname($scriptName));
-    $basePath = ($basePath === '/' || $basePath === '.') ? '' : rtrim($basePath, '/');
 
-    return $protocol . '://' . $host . $basePath;
+    return $protocol . '://' . $host . siteBasePath();
 }
 
 function renderSeoMeta(string $title = '', string $description = '', string $path = ''): void

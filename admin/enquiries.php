@@ -5,6 +5,7 @@ requireAdminLogin();
 $conn = getAdminDb();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isViewer()) {
+    verifyCsrfToken();
     $bulkAction = $_POST['bulk_action'] ?? '';
     $selectedIds = array_map('intval', $_POST['selected'] ?? []);
 
@@ -140,6 +141,7 @@ $statusTabs = [
             </div>
         <?php else: ?>
             <form method="POST" id="bulkForm">
+                <?= csrfField() ?>
                 <input type="hidden" name="redirect_status" value="<?= sanitize($filters['status']) ?>">
                 <input type="hidden" name="redirect_search" value="<?= sanitize($filters['search']) ?>">
                 <input type="hidden" name="redirect_page" value="<?= $page ?>">

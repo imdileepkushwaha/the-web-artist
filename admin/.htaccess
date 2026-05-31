@@ -1,12 +1,7 @@
-ErrorDocument 404 /404
-
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
-    # Let admin folder handle its own URLs
-    RewriteRule ^admin($|/) - [L]
-
-    # Homepage: drop index.php from the URL
+    # Dashboard: drop index.php from the URL
     RewriteRule ^index\.php$ ./ [R=301,L,NC]
 
     # Redirect visible .php URLs to clean paths (GET/HEAD only)
@@ -18,7 +13,7 @@ ErrorDocument 404 /404
     RewriteCond %{REQUEST_FILENAME} -d
     RewriteRule ^ - [L]
 
-    # Map clean URLs to PHP scripts
+    # Map clean URLs to PHP scripts (includes api/search, api/notifications)
     RewriteCond %{REQUEST_FILENAME}.php -f
     RewriteRule ^(.+?)/?$ $1.php [L,QSA]
 </IfModule>

@@ -4652,7 +4652,74 @@ a.dash-stat-card:hover {
 
 /* Backup page */
 .backup-card {
-    max-width: 640px;
+    max-width: none;
+}
+
+.backup-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+    gap: 28px;
+    align-items: start;
+}
+
+.backup-col-main {
+    min-width: 0;
+}
+
+.backup-download-btn {
+    margin-bottom: 28px;
+}
+
+.backup-restore-panel {
+    padding: 24px;
+    background: linear-gradient(135deg, #fff7ed 0%, #fef2f2 100%);
+    border: 1px solid #fecaca;
+    border-radius: 16px;
+    position: sticky;
+    top: 88px;
+}
+
+.backup-restore-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.backup-restore-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: #fff;
+    color: #dc2626;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 16px rgba(220, 38, 38, 0.12);
+    flex-shrink: 0;
+}
+
+.backup-restore-icon svg {
+    width: 24px;
+    height: 24px;
+}
+
+.backup-restore-header h3 {
+    font-size: 1.1rem;
+    font-weight: 800;
+    margin-bottom: 6px;
+    color: #991b1b;
+}
+
+.backup-restore-header p {
+    font-size: 0.88rem;
+    color: #7f1d1d;
+    line-height: 1.55;
+}
+
+.btn-block {
+    width: 100%;
+    justify-content: center;
 }
 
 .backup-hero {
@@ -5325,7 +5392,22 @@ body.modal-open {
 
 [data-theme="dark"] .backup-hero-icon { background: var(--surface-alt); }
 
+[data-theme="dark"] .backup-restore-panel {
+    background: linear-gradient(135deg, rgba(127, 29, 29, 0.25) 0%, rgba(69, 10, 10, 0.35) 100%);
+    border-color: rgba(248, 113, 113, 0.35);
+}
+
+[data-theme="dark"] .backup-restore-icon {
+    background: var(--surface-alt);
+    color: #fca5a5;
+}
+
+[data-theme="dark"] .backup-restore-header h3 { color: #fecaca; }
+[data-theme="dark"] .backup-restore-header p { color: #fca5a5; }
+
 @media (max-width: 900px) {
+    .backup-layout { grid-template-columns: 1fr; }
+    .backup-restore-panel { position: static; }
     .settings-grid { grid-template-columns: 1fr; }
     .settings-tabs-layout { grid-template-columns: 1fr; }
     .settings-tab-nav {

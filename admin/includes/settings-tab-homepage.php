@@ -9,6 +9,7 @@
     ?>
     <div class="panel-body">
         <form method="POST" class="admin-form">
+            <?= csrfField() ?>
             <input type="hidden" name="action" value="homepage">
 
             <div class="settings-section-divider settings-section-divider-first">

@@ -14,10 +14,15 @@ function ensureAllAdminTables(PDO $conn): void
     ensureServicesTable($conn);
     ensurePortfolioProjectsTable($conn);
     ensureTrustedClientsTable($conn);
+    ensureEmailLogTable($conn);
+    ensureWhatsAppTemplatesTable($conn);
+    migrateAdminUsersForcePassword($conn);
+    migrateTrustedClientLogoKeys($conn);
 
     seedDefaultAdminUser($conn);
     seedDefaultSettings($conn);
     seedDefaultEmailTemplates($conn);
+    seedDefaultWhatsAppTemplates($conn);
     seedDefaultFaqItems($conn);
     seedDefaultTestimonials($conn);
     seedDefaultServices($conn);
@@ -156,8 +161,8 @@ function seedDefaultAdminUser(PDO $conn): void
     $username = defined('ADMIN_USERNAME') ? ADMIN_USERNAME : 'admin';
     $password = defined('ADMIN_PASSWORD') ? ADMIN_PASSWORD : 'admin123';
 
-    $stmt = $conn->prepare('INSERT INTO admin_users (username, password_hash, name, email, role, is_active)
-        VALUES (:username, :password_hash, :name, :email, :role, 1)');
+    $stmt = $conn->prepare('INSERT INTO admin_users (username, password_hash, name, email, role, is_active, force_password_change)
+        VALUES (:username, :password_hash, :name, :email, :role, 1, 1)');
     $stmt->execute([
         ':username' => $username,
         ':password_hash' => password_hash($password, PASSWORD_DEFAULT),
@@ -241,6 +246,55 @@ function seedDefaultSettings(PDO $conn): void
         'seo_keywords' => 'web development, software company, ecommerce software, school management software, hospital software, IT solutions India, The Web Artist',
         'google_analytics_id' => '',
         'og_image_url' => '',
+        'site_name' => 'The Web Artist',
+        'site_tagline' => 'IT Solutions & Software Development',
+        'nav_show_portfolio' => '1',
+        'nav_show_faq' => '1',
+        'services_badge' => 'WHAT WE DO',
+        'services_title' => 'Our Premium Services',
+        'services_subtitle' => 'Comprehensive IT solutions tailored to your business needs.',
+        'testimonials_badge' => 'TESTIMONIALS',
+        'testimonials_title' => 'What Our Clients Say',
+        'testimonials_subtitle' => 'Trusted by businesses across industries.',
+        'faq_badge' => 'FAQ',
+        'faq_title' => 'Frequently Asked Questions',
+        'faq_subtitle' => 'Everything you need to know about our services.',
+        'faq_intro' => 'Got questions? We have answers. Browse our most common questions below.',
+        'about_title_prefix' => 'Crafting Digital',
+        'about_feature1_title' => 'Custom Solutions',
+        'about_feature1_desc' => 'Tailored software built for your unique business workflows.',
+        'about_feature2_title' => 'Scalable Architecture',
+        'about_feature2_desc' => 'Systems designed to grow with your business demands.',
+        'about_feature3_title' => 'Dedicated Support',
+        'about_feature3_desc' => 'Responsive team ready to help whenever you need us.',
+        'about_card_title' => 'Innovation First',
+        'about_card_text' => 'We combine cutting-edge technology with beautiful design.',
+        'cta_badge' => 'Start Your Project Today',
+        'cta_title_line1' => 'Ready to Elevate Your',
+        'cta_title_accent' => 'Business?',
+        'cta_subtitle' => 'Join hundreds of satisfied clients and transform your operations with modern, scalable IT solutions built for your industry.',
+        'cta_perk1' => 'Free consultation',
+        'cta_perk2' => 'Secure & reliable',
+        'cta_perk3' => 'Quick turnaround',
+        'cta_btn_primary' => 'Get Started Today',
+        'cta_btn_secondary' => 'Contact Sales',
+        'cta_trust1' => '50+ Projects Delivered',
+        'cta_trust2' => '98% Client Satisfaction',
+        'cta_trust3' => '24/7 Dedicated Support',
+        'contact_section_badge' => 'CONTACT US',
+        'contact_section_title' => 'Get In Touch With Us',
+        'contact_section_subtitle' => "Have questions or need a custom solution? We're here to help.",
+        'contact_form_badge' => "We're Here to Help",
+        'contact_form_title' => 'Send a Message',
+        'contact_form_subtitle' => 'Have a question or need a custom solution? Write to us anytime.',
+        'footer_text' => '© ' . date('Y') . ' The Web Artist. All rights reserved.',
+        'social_linkedin' => '',
+        'social_twitter' => '',
+        'social_facebook' => '',
+        'social_instagram' => '',
+        'backup_schedule_enabled' => '0',
+        'backup_schedule_days' => '7',
+        'backup_last_run' => '',
     ];
 
     $stmt = $conn->prepare('INSERT IGNORE INTO admin_settings (setting_key, setting_value) VALUES (:key, :value)');
@@ -391,6 +445,9 @@ function seedDefaultServices(PDO $conn): void
         ['title' => 'Appointment Booking Automation', 'description' => 'Streamlined scheduling for your clients and staff.', 'icon_emoji' => '📅', 'sort_order' => 9],
     ];
 
+    $stmt = $conn->prepare('INSERT INTO services (title, description, icon_emoji, sort_order, is_active)
+        VALUES (:title, :description, :icon_emoji, :sort_order, 1)');
+
     foreach ($items as $item) {
         $stmt->execute($item);
     }
@@ -427,16 +484,80 @@ function seedDefaultTrustedClients(PDO $conn): void
     }
 
     $items = [
-        ['name' => 'City Hospital', 'logo_text' => 'CH', 'sort_order' => 1],
-        ['name' => 'RetailPro', 'logo_text' => 'RP', 'sort_order' => 2],
-        ['name' => 'Global School', 'logo_text' => 'GS', 'sort_order' => 3],
-        ['name' => 'MediCare', 'logo_text' => 'MC', 'sort_order' => 4],
-        ['name' => 'TechVentures', 'logo_text' => 'TV', 'sort_order' => 5],
+        ['name' => 'TechNova', 'logo_text' => 'technova', 'sort_order' => 1],
+        ['name' => 'HealthSync', 'logo_text' => 'healthsync', 'sort_order' => 2],
+        ['name' => 'EduCore', 'logo_text' => 'educore', 'sort_order' => 3],
+        ['name' => 'RetailPro', 'logo_text' => 'retailpro', 'sort_order' => 4],
     ];
 
     $stmt = $conn->prepare('INSERT INTO trusted_clients (name, logo_text, sort_order, is_active) VALUES (:name, :logo_text, :sort_order, 1)');
 
     foreach ($items as $item) {
         $stmt->execute($item);
+    }
+}
+
+function migrateTrustedClientLogoKeys(PDO $conn): void
+{
+    $keys = ['technova', 'healthsync', 'educore', 'retailpro'];
+
+    foreach ($keys as $key) {
+        $stmt = $conn->prepare("UPDATE trusted_clients SET logo_text = :key WHERE LOWER(REPLACE(name, ' ', '')) = :match");
+        $stmt->execute([':key' => $key, ':match' => $key]);
+    }
+}
+
+function migrateAdminUsersForcePassword(PDO $conn): void
+{
+    $columns = $conn->query('SHOW COLUMNS FROM admin_users')->fetchAll(PDO::FETCH_COLUMN);
+
+    if (!in_array('force_password_change', $columns, true)) {
+        $conn->exec('ALTER TABLE admin_users ADD COLUMN force_password_change TINYINT(1) NOT NULL DEFAULT 0 AFTER is_active');
+    }
+}
+
+function ensureEmailLogTable(PDO $conn): void
+{
+    $conn->exec("CREATE TABLE IF NOT EXISTS email_log (
+        id INT(11) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        recipient VARCHAR(255) NOT NULL,
+        subject VARCHAR(255) NOT NULL,
+        context VARCHAR(100) NOT NULL DEFAULT '',
+        status ENUM('sent','failed') NOT NULL DEFAULT 'sent',
+        message TEXT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_created_at (created_at),
+        INDEX idx_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+
+function ensureWhatsAppTemplatesTable(PDO $conn): void
+{
+    $conn->exec("CREATE TABLE IF NOT EXISTS whatsapp_templates (
+        id INT(11) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        body TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+
+function seedDefaultWhatsAppTemplates(PDO $conn): void
+{
+    $count = (int) $conn->query('SELECT COUNT(*) FROM whatsapp_templates')->fetchColumn();
+
+    if ($count > 0) {
+        return;
+    }
+
+    $templates = [
+        ['name' => 'Intro', 'body' => 'Hi {{name}}, thank you for your enquiry about {{service}}. This is {{admin_name}} from The Web Artist. How can I help you today?'],
+        ['name' => 'Follow Up', 'body' => 'Hi {{name}}, just following up on your enquiry for {{service}}. Are you available for a quick call today?'],
+        ['name' => 'Demo Invite', 'body' => 'Hi {{name}}, we would love to show you a demo of our {{service}} solution. When would be a good time for you?'],
+    ];
+
+    $stmt = $conn->prepare('INSERT INTO whatsapp_templates (name, body) VALUES (:name, :body)');
+
+    foreach ($templates as $template) {
+        $stmt->execute($template);
     }
 }

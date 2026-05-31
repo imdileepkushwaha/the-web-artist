@@ -1,6 +1,6 @@
 <?php
 
-function sendSystemEmail(string $to, string $subject, string $body, ?string $replyTo = null): array
+function sendSystemEmail(string $to, string $subject, string $body, ?string $replyTo = null, string $context = 'system'): array
 {
     $to = trim($to);
 
@@ -21,10 +21,16 @@ function sendSystemEmail(string $to, string $subject, string $body, ?string $rep
     }
 
     if (getSetting($conn, 'smtp_enabled', '0') === '1') {
-        return sendSmtpEmail($to, $subject, $body, $fromEmail, $fromName, $replyTo, $conn);
+        $result = sendSmtpEmail($to, $subject, $body, $fromEmail, $fromName, $replyTo, $conn);
+    } else {
+        $result = sendPhpMailEmail($to, $subject, $body, $fromEmail, $fromName, $replyTo);
     }
 
-    return sendPhpMailEmail($to, $subject, $body, $fromEmail, $fromName, $replyTo);
+    if (function_exists('logEmailDelivery')) {
+        logEmailDelivery($conn, $to, $subject, $context, $result['success'], $result['message'] ?? '');
+    }
+
+    return $result;
 }
 
 function sendPhpMailEmail(string $to, string $subject, string $body, string $fromEmail, string $fromName, ?string $replyTo): array
@@ -56,7 +62,9 @@ function sendSmtpEmail(string $to, string $subject, string $body, string $fromEm
     $port = (int) getSetting($conn, 'smtp_port', '587');
     $encryption = strtolower(trim((string) getSetting($conn, 'smtp_encryption', 'tls')));
     $username = trim((string) getSetting($conn, 'smtp_username', ''));
-    $password = (string) getSetting($conn, 'smtp_password', '');
+    $password = function_exists('getEncryptedSetting')
+        ? getEncryptedSetting($conn, 'smtp_password', '')
+        : (string) getSetting($conn, 'smtp_password', '');
 
     if ($host === '') {
         return ['success' => false, 'message' => 'SMTP host is required when SMTP is enabled.'];
@@ -204,7 +212,8 @@ function sendEnquiryNotificationIfEnabled(array $enquiry): bool
         $notifyEmail,
         $subject,
         $body,
-        $enquiry['email'] ?? null
+        $enquiry['email'] ?? null,
+        'enquiry_notification'
     );
 
     return $result['success'];

@@ -7,6 +7,7 @@ $editId = (int) ($_GET['edit'] ?? 0);
 $editItem = $editId ? getFaqItemById($conn, $editId) : null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    verifyCsrfToken();
     $action = $_POST['action'] ?? '';
 
     if ($action === 'save') {
@@ -101,6 +102,7 @@ require __DIR__ . '/includes/header.php';
         ?>
         <div class="panel-body">
             <form method="POST" class="admin-form">
+                <?= csrfField() ?>
                 <input type="hidden" name="action" value="save">
                 <input type="hidden" name="id" value="<?= (int) ($editItem['id'] ?? 0) ?>">
                 <div class="form-group">
@@ -128,6 +130,7 @@ require __DIR__ . '/includes/header.php';
             </form>
             <?php if ($editItem): ?>
                 <form method="POST" data-confirm-delete style="margin-top:16px;">
+                    <?= csrfField() ?>
                     <input type="hidden" name="action" value="delete">
                     <input type="hidden" name="id" value="<?= (int) $editItem['id'] ?>">
                     <button type="submit" class="btn btn-danger btn-sm" style="width:100%;">Delete FAQ</button>
